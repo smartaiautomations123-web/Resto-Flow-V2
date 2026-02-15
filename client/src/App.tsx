@@ -4,34 +4,49 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
+import DashboardLayout from "./components/DashboardLayout";
+import Dashboard from "./pages/Dashboard";
+import POS from "./pages/POS";
+import KDS from "./pages/KDS";
+import MenuManagement from "./pages/MenuManagement";
+import Inventory from "./pages/Inventory";
+import StaffManagement from "./pages/StaffManagement";
+import Reports from "./pages/Reports";
+import Suppliers from "./pages/Suppliers";
+import Customers from "./pages/Customers";
+import Reservations from "./pages/Reservations";
+import OnlineOrdering from "./pages/OnlineOrdering";
+import TableOrdering from "./pages/TableOrdering";
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
+      {/* Public routes */}
+      <Route path="/order" component={OnlineOrdering} />
+      <Route path="/table/:tableId" component={TableOrdering} />
+      {/* Dashboard routes */}
+      <Route path="/" component={() => <DashboardLayout><Dashboard /></DashboardLayout>} />
+      <Route path="/pos" component={() => <DashboardLayout><POS /></DashboardLayout>} />
+      <Route path="/kds" component={() => <DashboardLayout><KDS /></DashboardLayout>} />
+      <Route path="/menu" component={() => <DashboardLayout><MenuManagement /></DashboardLayout>} />
+      <Route path="/inventory" component={() => <DashboardLayout><Inventory /></DashboardLayout>} />
+      <Route path="/staff" component={() => <DashboardLayout><StaffManagement /></DashboardLayout>} />
+      <Route path="/reports" component={() => <DashboardLayout><Reports /></DashboardLayout>} />
+      <Route path="/suppliers" component={() => <DashboardLayout><Suppliers /></DashboardLayout>} />
+      <Route path="/customers" component={() => <DashboardLayout><Customers /></DashboardLayout>} />
+      <Route path="/reservations" component={() => <DashboardLayout><Reservations /></DashboardLayout>} />
+      <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
-          <Toaster />
+          <Toaster richColors />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

@@ -1,11 +1,18 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, sql, isNull, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import {
+  InsertUser, users,
+  staff, timeClock, shifts,
+  menuCategories, menuItems, menuModifiers, itemModifiers,
+  tables, orders, orderItems,
+  ingredients, recipes,
+  suppliers, purchaseOrders, purchaseOrderItems,
+  customers, reservations,
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -15,78 +22,498 @@ export async function getDb() {
       _db = null;
     }
   }
-  return _db;
+  return _db!;
 }
 
+// ─── Users ───────────────────────────────────────────────────────────
 export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
-  }
-
+  if (!user.openId) throw new Error("User openId is required for upsert");
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
-  }
-
-  try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
-    const updateSet: Record<string, unknown> = {};
-
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
-
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
-    };
-
-    textFields.forEach(assignNullable);
-
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
-    }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
-    }
-
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
-  } catch (error) {
-    console.error("[Database] Failed to upsert user:", error);
-    throw error;
-  }
+  const values: InsertUser = { openId: user.openId };
+  const updateSet: Record<string, unknown> = {};
+  const textFields = ["name", "email", "loginMethod"] as const;
+  type TextField = (typeof textFields)[number];
+  const assignNullable = (field: TextField) => {
+    const value = user[field];
+    if (value === undefined) return;
+    const normalized = value ?? null;
+    values[field] = normalized;
+    updateSet[field] = normalized;
+  };
+  textFields.forEach(assignNullable);
+  if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
+  if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
+  else if (user.openId === ENV.ownerOpenId) { values.role = 'admin'; updateSet.role = 'admin'; }
+  if (!values.lastSignedIn) values.lastSignedIn = new Date();
+  if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
+  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
 }
 
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
-
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ─── Staff ───────────────────────────────────────────────────────────
+export async function listStaff() {
+  const db = await getDb();
+  return db.select().from(staff).orderBy(asc(staff.name));
+}
+export async function getStaffById(id: number) {
+  const db = await getDb();
+  const r = await db.select().from(staff).where(eq(staff.id, id)).limit(1);
+  return r[0];
+}
+export async function createStaff(data: typeof staff.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(staff).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateStaff(id: number, data: Partial<typeof staff.$inferInsert>) {
+  const db = await getDb();
+  await db.update(staff).set(data).where(eq(staff.id, id));
+}
+export async function deleteStaff(id: number) {
+  const db = await getDb();
+  await db.delete(staff).where(eq(staff.id, id));
+}
+
+// ─── Time Clock ──────────────────────────────────────────────────────
+export async function clockIn(staffId: number) {
+  const db = await getDb();
+  const r = await db.insert(timeClock).values({ staffId, clockIn: new Date() });
+  return { id: r[0].insertId };
+}
+export async function clockOut(id: number) {
+  const db = await getDb();
+  await db.update(timeClock).set({ clockOut: new Date() }).where(eq(timeClock.id, id));
+}
+export async function getActiveClockEntry(staffId: number) {
+  const db = await getDb();
+  const r = await db.select().from(timeClock).where(and(eq(timeClock.staffId, staffId), isNull(timeClock.clockOut))).limit(1);
+  return r[0];
+}
+export async function listTimeEntries(staffId?: number, dateFrom?: string, dateTo?: string) {
+  const db = await getDb();
+  const conditions = [];
+  if (staffId) conditions.push(eq(timeClock.staffId, staffId));
+  if (dateFrom) conditions.push(gte(timeClock.clockIn, new Date(dateFrom)));
+  if (dateTo) conditions.push(lte(timeClock.clockIn, new Date(dateTo)));
+  return db.select().from(timeClock).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(timeClock.clockIn));
+}
+
+// ─── Shifts ──────────────────────────────────────────────────────────
+export async function listShifts(dateFrom?: string, dateTo?: string) {
+  const db = await getDb();
+  const conditions = [];
+  if (dateFrom) conditions.push(gte(shifts.date, dateFrom));
+  if (dateTo) conditions.push(lte(shifts.date, dateTo));
+  return db.select().from(shifts).where(conditions.length ? and(...conditions) : undefined).orderBy(asc(shifts.date), asc(shifts.startTime));
+}
+export async function createShift(data: typeof shifts.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(shifts).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateShift(id: number, data: Partial<typeof shifts.$inferInsert>) {
+  const db = await getDb();
+  await db.update(shifts).set(data).where(eq(shifts.id, id));
+}
+export async function deleteShift(id: number) {
+  const db = await getDb();
+  await db.delete(shifts).where(eq(shifts.id, id));
+}
+
+// ─── Menu Categories ─────────────────────────────────────────────────
+export async function listCategories() {
+  const db = await getDb();
+  return db.select().from(menuCategories).orderBy(asc(menuCategories.sortOrder));
+}
+export async function createCategory(data: typeof menuCategories.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(menuCategories).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateCategory(id: number, data: Partial<typeof menuCategories.$inferInsert>) {
+  const db = await getDb();
+  await db.update(menuCategories).set(data).where(eq(menuCategories.id, id));
+}
+export async function deleteCategory(id: number) {
+  const db = await getDb();
+  await db.delete(menuCategories).where(eq(menuCategories.id, id));
+}
+
+// ─── Menu Items ──────────────────────────────────────────────────────
+export async function listMenuItems(categoryId?: number) {
+  const db = await getDb();
+  if (categoryId) return db.select().from(menuItems).where(eq(menuItems.categoryId, categoryId)).orderBy(asc(menuItems.sortOrder));
+  return db.select().from(menuItems).orderBy(asc(menuItems.sortOrder));
+}
+export async function getMenuItem(id: number) {
+  const db = await getDb();
+  const r = await db.select().from(menuItems).where(eq(menuItems.id, id)).limit(1);
+  return r[0];
+}
+export async function createMenuItem(data: typeof menuItems.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(menuItems).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateMenuItem(id: number, data: Partial<typeof menuItems.$inferInsert>) {
+  const db = await getDb();
+  await db.update(menuItems).set(data).where(eq(menuItems.id, id));
+}
+export async function deleteMenuItem(id: number) {
+  const db = await getDb();
+  await db.delete(menuItems).where(eq(menuItems.id, id));
+}
+
+// ─── Menu Modifiers ──────────────────────────────────────────────────
+export async function listModifiers() {
+  const db = await getDb();
+  return db.select().from(menuModifiers).orderBy(asc(menuModifiers.name));
+}
+export async function createModifier(data: typeof menuModifiers.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(menuModifiers).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateModifier(id: number, data: Partial<typeof menuModifiers.$inferInsert>) {
+  const db = await getDb();
+  await db.update(menuModifiers).set(data).where(eq(menuModifiers.id, id));
+}
+export async function deleteModifier(id: number) {
+  const db = await getDb();
+  await db.delete(menuModifiers).where(eq(menuModifiers.id, id));
+}
+
+// ─── Item Modifiers ──────────────────────────────────────────────────
+export async function getItemModifiers(menuItemId: number) {
+  const db = await getDb();
+  return db.select().from(itemModifiers).where(eq(itemModifiers.menuItemId, menuItemId));
+}
+export async function setItemModifiers(menuItemId: number, modifierIds: number[]) {
+  const db = await getDb();
+  await db.delete(itemModifiers).where(eq(itemModifiers.menuItemId, menuItemId));
+  if (modifierIds.length > 0) {
+    await db.insert(itemModifiers).values(modifierIds.map(modifierId => ({ menuItemId, modifierId })));
+  }
+}
+
+// ─── Tables ──────────────────────────────────────────────────────────
+export async function listTables() {
+  const db = await getDb();
+  return db.select().from(tables).orderBy(asc(tables.name));
+}
+export async function createTable(data: typeof tables.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(tables).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateTable(id: number, data: Partial<typeof tables.$inferInsert>) {
+  const db = await getDb();
+  await db.update(tables).set(data).where(eq(tables.id, id));
+}
+export async function deleteTable(id: number) {
+  const db = await getDb();
+  await db.delete(tables).where(eq(tables.id, id));
+}
+
+// ─── Orders ──────────────────────────────────────────────────────────
+export async function listOrders(status?: string, type?: string, dateFrom?: string, dateTo?: string) {
+  const db = await getDb();
+  const conditions = [];
+  if (status) conditions.push(eq(orders.status, status as any));
+  if (type) conditions.push(eq(orders.type, type as any));
+  if (dateFrom) conditions.push(gte(orders.createdAt, new Date(dateFrom)));
+  if (dateTo) conditions.push(lte(orders.createdAt, new Date(dateTo)));
+  return db.select().from(orders).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(orders.createdAt)).limit(200);
+}
+export async function getOrder(id: number) {
+  const db = await getDb();
+  const r = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+  return r[0];
+}
+export async function createOrder(data: typeof orders.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(orders).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateOrder(id: number, data: Partial<typeof orders.$inferInsert>) {
+  const db = await getDb();
+  await db.update(orders).set(data).where(eq(orders.id, id));
+}
+
+// ─── Order Items ─────────────────────────────────────────────────────
+export async function listOrderItems(orderId: number) {
+  const db = await getDb();
+  return db.select().from(orderItems).where(eq(orderItems.orderId, orderId)).orderBy(asc(orderItems.createdAt));
+}
+export async function createOrderItem(data: typeof orderItems.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(orderItems).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateOrderItem(id: number, data: Partial<typeof orderItems.$inferInsert>) {
+  const db = await getDb();
+  await db.update(orderItems).set(data).where(eq(orderItems.id, id));
+}
+
+// ─── KDS: get active order items grouped by station ──────────────────
+export async function getKDSItems() {
+  const db = await getDb();
+  return db.select().from(orderItems)
+    .where(
+      and(
+        sql`${orderItems.status} IN ('pending', 'preparing')`,
+      )
+    )
+    .orderBy(asc(orderItems.createdAt));
+}
+
+// ─── Ingredients ─────────────────────────────────────────────────────
+export async function listIngredients() {
+  const db = await getDb();
+  return db.select().from(ingredients).orderBy(asc(ingredients.name));
+}
+export async function getIngredient(id: number) {
+  const db = await getDb();
+  const r = await db.select().from(ingredients).where(eq(ingredients.id, id)).limit(1);
+  return r[0];
+}
+export async function createIngredient(data: typeof ingredients.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(ingredients).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateIngredient(id: number, data: Partial<typeof ingredients.$inferInsert>) {
+  const db = await getDb();
+  await db.update(ingredients).set(data).where(eq(ingredients.id, id));
+}
+export async function deleteIngredient(id: number) {
+  const db = await getDb();
+  await db.delete(ingredients).where(eq(ingredients.id, id));
+}
+export async function getLowStockIngredients() {
+  const db = await getDb();
+  return db.select().from(ingredients).where(sql`${ingredients.currentStock} <= ${ingredients.minStock} AND ${ingredients.isActive} = true`).orderBy(asc(ingredients.name));
+}
+
+// ─── Recipes ─────────────────────────────────────────────────────────
+export async function getRecipesForItem(menuItemId: number) {
+  const db = await getDb();
+  return db.select().from(recipes).where(eq(recipes.menuItemId, menuItemId));
+}
+export async function setRecipes(menuItemId: number, items: { ingredientId: number; quantity: string }[]) {
+  const db = await getDb();
+  await db.delete(recipes).where(eq(recipes.menuItemId, menuItemId));
+  if (items.length > 0) {
+    await db.insert(recipes).values(items.map(i => ({ menuItemId, ingredientId: i.ingredientId, quantity: i.quantity })));
+  }
+}
+
+// ─── Stock deduction on order completion ─────────────────────────────
+export async function deductStockForOrder(orderId: number) {
+  const db = await getDb();
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  for (const item of items) {
+    const recipeItems = await db.select().from(recipes).where(eq(recipes.menuItemId, item.menuItemId));
+    for (const ri of recipeItems) {
+      const usedQty = Number(ri.quantity) * item.quantity;
+      await db.update(ingredients)
+        .set({ currentStock: sql`GREATEST(0, ${ingredients.currentStock} - ${usedQty})` })
+        .where(eq(ingredients.id, ri.ingredientId));
+    }
+  }
+}
+
+// ─── Suppliers ───────────────────────────────────────────────────────
+export async function listSuppliers() {
+  const db = await getDb();
+  return db.select().from(suppliers).orderBy(asc(suppliers.name));
+}
+export async function getSupplier(id: number) {
+  const db = await getDb();
+  const r = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+  return r[0];
+}
+export async function createSupplier(data: typeof suppliers.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(suppliers).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateSupplier(id: number, data: Partial<typeof suppliers.$inferInsert>) {
+  const db = await getDb();
+  await db.update(suppliers).set(data).where(eq(suppliers.id, id));
+}
+export async function deleteSupplier(id: number) {
+  const db = await getDb();
+  await db.delete(suppliers).where(eq(suppliers.id, id));
+}
+
+// ─── Purchase Orders ─────────────────────────────────────────────────
+export async function listPurchaseOrders(supplierId?: number) {
+  const db = await getDb();
+  if (supplierId) return db.select().from(purchaseOrders).where(eq(purchaseOrders.supplierId, supplierId)).orderBy(desc(purchaseOrders.createdAt));
+  return db.select().from(purchaseOrders).orderBy(desc(purchaseOrders.createdAt));
+}
+export async function createPurchaseOrder(data: typeof purchaseOrders.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(purchaseOrders).values(data);
+  return { id: r[0].insertId };
+}
+export async function updatePurchaseOrder(id: number, data: Partial<typeof purchaseOrders.$inferInsert>) {
+  const db = await getDb();
+  await db.update(purchaseOrders).set(data).where(eq(purchaseOrders.id, id));
+}
+export async function listPurchaseOrderItems(poId: number) {
+  const db = await getDb();
+  return db.select().from(purchaseOrderItems).where(eq(purchaseOrderItems.purchaseOrderId, poId));
+}
+export async function createPurchaseOrderItem(data: typeof purchaseOrderItems.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(purchaseOrderItems).values(data);
+  return { id: r[0].insertId };
+}
+
+// ─── Customers ───────────────────────────────────────────────────────
+export async function listCustomers(search?: string) {
+  const db = await getDb();
+  if (search) return db.select().from(customers).where(like(customers.name, `%${search}%`)).orderBy(desc(customers.totalSpent)).limit(100);
+  return db.select().from(customers).orderBy(desc(customers.totalSpent)).limit(100);
+}
+export async function getCustomer(id: number) {
+  const db = await getDb();
+  const r = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
+  return r[0];
+}
+export async function createCustomer(data: typeof customers.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(customers).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateCustomer(id: number, data: Partial<typeof customers.$inferInsert>) {
+  const db = await getDb();
+  await db.update(customers).set(data).where(eq(customers.id, id));
+}
+export async function addLoyaltyPoints(customerId: number, points: number) {
+  const db = await getDb();
+  await db.update(customers).set({ loyaltyPoints: sql`${customers.loyaltyPoints} + ${points}` }).where(eq(customers.id, customerId));
+}
+
+// ─── Reservations ────────────────────────────────────────────────────
+export async function listReservations(date?: string) {
+  const db = await getDb();
+  if (date) return db.select().from(reservations).where(eq(reservations.date, date)).orderBy(asc(reservations.time));
+  return db.select().from(reservations).orderBy(desc(reservations.date), asc(reservations.time)).limit(100);
+}
+export async function createReservation(data: typeof reservations.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(reservations).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateReservation(id: number, data: Partial<typeof reservations.$inferInsert>) {
+  const db = await getDb();
+  await db.update(reservations).set(data).where(eq(reservations.id, id));
+}
+
+// ─── Reporting helpers ───────────────────────────────────────────────
+export async function getSalesStats(dateFrom: string, dateTo: string) {
+  const db = await getDb();
+  const result = await db.select({
+    totalRevenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+    totalOrders: sql<number>`COUNT(*)`,
+    avgTicket: sql<string>`COALESCE(AVG(${orders.total}), 0)`,
+  }).from(orders).where(and(
+    gte(orders.createdAt, new Date(dateFrom)),
+    lte(orders.createdAt, new Date(dateTo)),
+    sql`${orders.status} != 'cancelled'`
+  ));
+  return result[0];
+}
+
+export async function getSalesByCategory(dateFrom: string, dateTo: string) {
+  const db = await getDb();
+  return db.select({
+    categoryId: menuItems.categoryId,
+    categoryName: menuCategories.name,
+    totalSales: sql<string>`COALESCE(SUM(${orderItems.totalPrice}), 0)`,
+    itemCount: sql<number>`COUNT(${orderItems.id})`,
+  }).from(orderItems)
+    .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+    .innerJoin(menuCategories, eq(menuItems.categoryId, menuCategories.id))
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .where(and(
+      gte(orders.createdAt, new Date(dateFrom)),
+      lte(orders.createdAt, new Date(dateTo)),
+      sql`${orders.status} != 'cancelled'`
+    ))
+    .groupBy(menuItems.categoryId, menuCategories.name);
+}
+
+export async function getTopSellingItems(dateFrom: string, dateTo: string, limit = 10) {
+  const db = await getDb();
+  return db.select({
+    menuItemId: orderItems.menuItemId,
+    name: orderItems.name,
+    totalQty: sql<number>`SUM(${orderItems.quantity})`,
+    totalRevenue: sql<string>`SUM(${orderItems.totalPrice})`,
+  }).from(orderItems)
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .where(and(
+      gte(orders.createdAt, new Date(dateFrom)),
+      lte(orders.createdAt, new Date(dateTo)),
+      sql`${orders.status} != 'cancelled'`
+    ))
+    .groupBy(orderItems.menuItemId, orderItems.name)
+    .orderBy(sql`SUM(${orderItems.quantity}) DESC`)
+    .limit(limit);
+}
+
+export async function getDailySales(dateFrom: string, dateTo: string) {
+  const db = await getDb();
+  return db.select({
+    date: sql<string>`DATE(${orders.createdAt})`,
+    revenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+    orderCount: sql<number>`COUNT(*)`,
+  }).from(orders)
+    .where(and(
+      gte(orders.createdAt, new Date(dateFrom)),
+      lte(orders.createdAt, new Date(dateTo)),
+      sql`${orders.status} != 'cancelled'`
+    ))
+    .groupBy(sql`DATE(${orders.createdAt})`)
+    .orderBy(sql`DATE(${orders.createdAt})`);
+}
+
+export async function getLabourCosts(dateFrom: string, dateTo: string) {
+  const db = await getDb();
+  return db.select({
+    staffId: timeClock.staffId,
+    staffName: staff.name,
+    totalHours: sql<string>`COALESCE(SUM(TIMESTAMPDIFF(MINUTE, ${timeClock.clockIn}, COALESCE(${timeClock.clockOut}, NOW())) / 60.0), 0)`,
+    hourlyRate: staff.hourlyRate,
+  }).from(timeClock)
+    .innerJoin(staff, eq(timeClock.staffId, staff.id))
+    .where(and(
+      gte(timeClock.clockIn, new Date(dateFrom)),
+      lte(timeClock.clockIn, new Date(dateTo)),
+    ))
+    .groupBy(timeClock.staffId, staff.name, staff.hourlyRate);
+}
+
+export async function getOrdersByType(dateFrom: string, dateTo: string) {
+  const db = await getDb();
+  return db.select({
+    type: orders.type,
+    count: sql<number>`COUNT(*)`,
+    revenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+  }).from(orders)
+    .where(and(
+      gte(orders.createdAt, new Date(dateFrom)),
+      lte(orders.createdAt, new Date(dateTo)),
+      sql`${orders.status} != 'cancelled'`
+    ))
+    .groupBy(orders.type);
+}

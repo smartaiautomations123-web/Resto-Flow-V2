@@ -1,28 +1,346 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
+import { z } from "zod";
+import * as db from "./db";
+import { nanoid } from "nanoid";
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      return { success: true } as const;
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  // ─── Staff ───────────────────────────────────────────────────────
+  staff: router({
+    list: protectedProcedure.query(() => db.listStaff()),
+    get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getStaffById(input.id)),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), email: z.string().optional(), phone: z.string().optional(),
+      pin: z.string().optional(), role: z.enum(["owner", "manager", "server", "bartender", "kitchen"]),
+      hourlyRate: z.string().optional(),
+    })).mutation(({ input }) => db.createStaff(input)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), name: z.string().optional(), email: z.string().optional(),
+      phone: z.string().optional(), pin: z.string().optional(),
+      role: z.enum(["owner", "manager", "server", "bartender", "kitchen"]).optional(),
+      hourlyRate: z.string().optional(), isActive: z.boolean().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateStaff(id, data); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteStaff(input.id)),
+    clockIn: protectedProcedure.input(z.object({ staffId: z.number() })).mutation(({ input }) => db.clockIn(input.staffId)),
+    clockOut: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.clockOut(input.id)),
+    getActiveClock: protectedProcedure.input(z.object({ staffId: z.number() })).query(({ input }) => db.getActiveClockEntry(input.staffId)),
+    timeEntries: protectedProcedure.input(z.object({
+      staffId: z.number().optional(), dateFrom: z.string().optional(), dateTo: z.string().optional(),
+    })).query(({ input }) => db.listTimeEntries(input.staffId, input.dateFrom, input.dateTo)),
+  }),
+
+  // ─── Shifts ──────────────────────────────────────────────────────
+  shifts: router({
+    list: protectedProcedure.input(z.object({
+      dateFrom: z.string().optional(), dateTo: z.string().optional(),
+    })).query(({ input }) => db.listShifts(input.dateFrom, input.dateTo)),
+    create: protectedProcedure.input(z.object({
+      staffId: z.number(), date: z.string(), startTime: z.string(), endTime: z.string(),
+      role: z.string().optional(), notes: z.string().optional(),
+    })).mutation(({ input }) => db.createShift(input)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), staffId: z.number().optional(), date: z.string().optional(),
+      startTime: z.string().optional(), endTime: z.string().optional(),
+      role: z.string().optional(), notes: z.string().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateShift(id, data); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteShift(input.id)),
+  }),
+
+  // ─── Menu Categories ─────────────────────────────────────────────
+  categories: router({
+    list: publicProcedure.query(() => db.listCategories()),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), description: z.string().optional(), sortOrder: z.number().optional(),
+    })).mutation(({ input }) => db.createCategory(input)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), name: z.string().optional(), description: z.string().optional(),
+      sortOrder: z.number().optional(), isActive: z.boolean().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateCategory(id, data); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteCategory(input.id)),
+  }),
+
+  // ─── Menu Items ──────────────────────────────────────────────────
+  menu: router({
+    list: publicProcedure.input(z.object({ categoryId: z.number().optional() }).optional()).query(({ input }) => db.listMenuItems(input?.categoryId)),
+    get: publicProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getMenuItem(input.id)),
+    create: protectedProcedure.input(z.object({
+      categoryId: z.number(), name: z.string(), description: z.string().optional(),
+      price: z.string(), cost: z.string().optional(), taxRate: z.string().optional(),
+      imageUrl: z.string().optional(), isAvailable: z.boolean().optional(),
+      isPopular: z.boolean().optional(), prepTime: z.number().optional(),
+      station: z.enum(["grill", "fryer", "salad", "dessert", "bar", "general"]).optional(),
+      sortOrder: z.number().optional(),
+    })).mutation(({ input }) => db.createMenuItem(input)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), categoryId: z.number().optional(), name: z.string().optional(),
+      description: z.string().optional(), price: z.string().optional(),
+      cost: z.string().optional(), taxRate: z.string().optional(),
+      imageUrl: z.string().optional(), isAvailable: z.boolean().optional(),
+      isPopular: z.boolean().optional(), prepTime: z.number().optional(),
+      station: z.enum(["grill", "fryer", "salad", "dessert", "bar", "general"]).optional(),
+      sortOrder: z.number().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateMenuItem(id, data); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteMenuItem(input.id)),
+  }),
+
+  // ─── Modifiers ───────────────────────────────────────────────────
+  modifiers: router({
+    list: publicProcedure.query(() => db.listModifiers()),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), price: z.string().optional(), groupName: z.string().optional(),
+    })).mutation(({ input }) => db.createModifier(input)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), name: z.string().optional(), price: z.string().optional(),
+      groupName: z.string().optional(), isActive: z.boolean().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateModifier(id, data); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteModifier(input.id)),
+    getForItem: protectedProcedure.input(z.object({ menuItemId: z.number() })).query(({ input }) => db.getItemModifiers(input.menuItemId)),
+    setForItem: protectedProcedure.input(z.object({
+      menuItemId: z.number(), modifierIds: z.array(z.number()),
+    })).mutation(({ input }) => db.setItemModifiers(input.menuItemId, input.modifierIds)),
+  }),
+
+  // ─── Tables ──────────────────────────────────────────────────────
+  tables: router({
+    list: publicProcedure.query(() => db.listTables()),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), seats: z.number().optional(), section: z.string().optional(),
+      positionX: z.number().optional(), positionY: z.number().optional(),
+    })).mutation(({ input }) => db.createTable(input)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), name: z.string().optional(), seats: z.number().optional(),
+      status: z.enum(["free", "occupied", "reserved", "cleaning"]).optional(),
+      section: z.string().optional(), positionX: z.number().optional(), positionY: z.number().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateTable(id, data); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteTable(input.id)),
+  }),
+
+  // ─── Orders ──────────────────────────────────────────────────────
+  orders: router({
+    list: protectedProcedure.input(z.object({
+      status: z.string().optional(), type: z.string().optional(),
+      dateFrom: z.string().optional(), dateTo: z.string().optional(),
+    }).optional()).query(({ input }) => db.listOrders(input?.status, input?.type, input?.dateFrom, input?.dateTo)),
+    get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getOrder(input.id)),
+    create: protectedProcedure.input(z.object({
+      type: z.enum(["dine_in", "takeaway", "delivery", "collection", "online"]),
+      tableId: z.number().optional(), staffId: z.number().optional(),
+      customerId: z.number().optional(), customerName: z.string().optional(), notes: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      const orderNumber = `ORD-${nanoid(8).toUpperCase()}`;
+      return db.createOrder({ ...input, orderNumber });
+    }),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), status: z.enum(["pending", "preparing", "ready", "served", "completed", "cancelled"]).optional(),
+      paymentMethod: z.enum(["card", "cash", "split", "online", "unpaid"]).optional(),
+      paymentStatus: z.enum(["unpaid", "paid", "refunded", "partial"]).optional(),
+      subtotal: z.string().optional(), taxAmount: z.string().optional(),
+      discountAmount: z.string().optional(), serviceCharge: z.string().optional(),
+      tipAmount: z.string().optional(), total: z.string().optional(),
+      notes: z.string().optional(), completedAt: z.date().optional(),
+    })).mutation(async ({ input }) => {
+      const { id, ...data } = input;
+      if (data.status === "completed") {
+        (data as any).completedAt = new Date();
+        await db.deductStockForOrder(id);
+      }
+      return db.updateOrder(id, data);
+    }),
+    items: protectedProcedure.input(z.object({ orderId: z.number() })).query(({ input }) => db.listOrderItems(input.orderId)),
+    addItem: protectedProcedure.input(z.object({
+      orderId: z.number(), menuItemId: z.number(), name: z.string(),
+      quantity: z.number(), unitPrice: z.string(), totalPrice: z.string(),
+      modifiers: z.any().optional(), station: z.string().optional(), notes: z.string().optional(),
+    })).mutation(({ input }) => db.createOrderItem(input)),
+    updateItem: protectedProcedure.input(z.object({
+      id: z.number(), status: z.enum(["pending", "preparing", "ready", "served", "voided"]).optional(),
+      quantity: z.number().optional(), notes: z.string().optional(),
+      sentToKitchenAt: z.date().optional(), readyAt: z.date().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateOrderItem(id, data); }),
+  }),
+
+  // ─── KDS ─────────────────────────────────────────────────────────
+  kds: router({
+    items: protectedProcedure.query(() => db.getKDSItems()),
+    updateStatus: protectedProcedure.input(z.object({
+      id: z.number(), status: z.enum(["pending", "preparing", "ready", "served", "voided"]),
+    })).mutation(async ({ input }) => {
+      const data: any = { status: input.status };
+      if (input.status === "preparing") data.sentToKitchenAt = new Date();
+      if (input.status === "ready") data.readyAt = new Date();
+      return db.updateOrderItem(input.id, data);
+    }),
+  }),
+
+  // ─── Ingredients ─────────────────────────────────────────────────
+  ingredients: router({
+    list: protectedProcedure.query(() => db.listIngredients()),
+    get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getIngredient(input.id)),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), unit: z.string(), currentStock: z.string().optional(),
+      minStock: z.string().optional(), costPerUnit: z.string().optional(),
+      supplierId: z.number().optional(),
+    })).mutation(({ input }) => db.createIngredient(input)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), name: z.string().optional(), unit: z.string().optional(),
+      currentStock: z.string().optional(), minStock: z.string().optional(),
+      costPerUnit: z.string().optional(), supplierId: z.number().optional(),
+      isActive: z.boolean().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateIngredient(id, data); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteIngredient(input.id)),
+    lowStock: protectedProcedure.query(() => db.getLowStockIngredients()),
+  }),
+
+  // ─── Recipes ─────────────────────────────────────────────────────
+  recipes: router({
+    getForItem: protectedProcedure.input(z.object({ menuItemId: z.number() })).query(({ input }) => db.getRecipesForItem(input.menuItemId)),
+    setForItem: protectedProcedure.input(z.object({
+      menuItemId: z.number(),
+      items: z.array(z.object({ ingredientId: z.number(), quantity: z.string() })),
+    })).mutation(({ input }) => db.setRecipes(input.menuItemId, input.items)),
+  }),
+
+  // ─── Suppliers ───────────────────────────────────────────────────
+  suppliers: router({
+    list: protectedProcedure.query(() => db.listSuppliers()),
+    get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getSupplier(input.id)),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), contactName: z.string().optional(), email: z.string().optional(),
+      phone: z.string().optional(), address: z.string().optional(), notes: z.string().optional(),
+    })).mutation(({ input }) => db.createSupplier(input)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), name: z.string().optional(), contactName: z.string().optional(),
+      email: z.string().optional(), phone: z.string().optional(),
+      address: z.string().optional(), notes: z.string().optional(), isActive: z.boolean().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateSupplier(id, data); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteSupplier(input.id)),
+  }),
+
+  // ─── Purchase Orders ─────────────────────────────────────────────
+  purchaseOrders: router({
+    list: protectedProcedure.input(z.object({ supplierId: z.number().optional() }).optional())
+      .query(({ input }) => db.listPurchaseOrders(input?.supplierId)),
+    create: protectedProcedure.input(z.object({
+      supplierId: z.number(), notes: z.string().optional(),
+      items: z.array(z.object({
+        ingredientId: z.number(), quantity: z.string(), unitCost: z.string(), totalCost: z.string(),
+      })),
+    })).mutation(async ({ input }) => {
+      const totalAmount = input.items.reduce((sum, i) => sum + Number(i.totalCost), 0).toFixed(2);
+      const po = await db.createPurchaseOrder({ supplierId: input.supplierId, notes: input.notes, totalAmount });
+      for (const item of input.items) {
+        await db.createPurchaseOrderItem({ purchaseOrderId: po.id, ...item });
+      }
+      return po;
+    }),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), status: z.enum(["draft", "sent", "received", "cancelled"]).optional(),
+      notes: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      const { id, ...data } = input;
+      if (data.status === "received") (data as any).receivedAt = new Date();
+      if (data.status === "sent") (data as any).orderedAt = new Date();
+      return db.updatePurchaseOrder(id, data);
+    }),
+    items: protectedProcedure.input(z.object({ purchaseOrderId: z.number() }))
+      .query(({ input }) => db.listPurchaseOrderItems(input.purchaseOrderId)),
+  }),
+
+  // ─── Customers ───────────────────────────────────────────────────
+  customers: router({
+    list: protectedProcedure.input(z.object({ search: z.string().optional() }).optional())
+      .query(({ input }) => db.listCustomers(input?.search)),
+    get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getCustomer(input.id)),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), email: z.string().optional(), phone: z.string().optional(),
+      notes: z.string().optional(), birthday: z.string().optional(),
+    })).mutation(({ input }) => db.createCustomer(input)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), name: z.string().optional(), email: z.string().optional(),
+      phone: z.string().optional(), notes: z.string().optional(), birthday: z.string().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateCustomer(id, data); }),
+    addPoints: protectedProcedure.input(z.object({ customerId: z.number(), points: z.number() }))
+      .mutation(({ input }) => db.addLoyaltyPoints(input.customerId, input.points)),
+  }),
+
+  // ─── Reservations ────────────────────────────────────────────────
+  reservations: router({
+    list: protectedProcedure.input(z.object({ date: z.string().optional() }).optional())
+      .query(({ input }) => db.listReservations(input?.date)),
+    create: protectedProcedure.input(z.object({
+      customerId: z.number().optional(), guestName: z.string(), guestPhone: z.string().optional(),
+      guestEmail: z.string().optional(), tableId: z.number().optional(),
+      partySize: z.number(), date: z.string(), time: z.string(), notes: z.string().optional(),
+    })).mutation(({ input }) => db.createReservation(input)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), status: z.enum(["confirmed", "seated", "completed", "cancelled", "no_show"]).optional(),
+      tableId: z.number().optional(), notes: z.string().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateReservation(id, data); }),
+  }),
+
+  // ─── Reporting ───────────────────────────────────────────────────
+  reports: router({
+    salesStats: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
+      .query(({ input }) => db.getSalesStats(input.dateFrom, input.dateTo)),
+    salesByCategory: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
+      .query(({ input }) => db.getSalesByCategory(input.dateFrom, input.dateTo)),
+    topItems: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string(), limit: z.number().optional() }))
+      .query(({ input }) => db.getTopSellingItems(input.dateFrom, input.dateTo, input.limit)),
+    dailySales: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
+      .query(({ input }) => db.getDailySales(input.dateFrom, input.dateTo)),
+    labourCosts: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
+      .query(({ input }) => db.getLabourCosts(input.dateFrom, input.dateTo)),
+    ordersByType: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
+      .query(({ input }) => db.getOrdersByType(input.dateFrom, input.dateTo)),
+  }),
+
+  // ─── Online ordering (public) ────────────────────────────────────
+  online: router({
+    menu: publicProcedure.query(async () => {
+      const cats = await db.listCategories();
+      const items = await db.listMenuItems();
+      return cats.filter(c => c.isActive).map(c => ({
+        ...c,
+        items: items.filter(i => i.categoryId === c.id && i.isAvailable),
+      }));
+    }),
+    placeOrder: publicProcedure.input(z.object({
+      customerName: z.string(), customerPhone: z.string().optional(),
+      type: z.enum(["takeaway", "delivery", "collection", "online"]),
+      items: z.array(z.object({
+        menuItemId: z.number(), name: z.string(), quantity: z.number(),
+        unitPrice: z.string(), totalPrice: z.string(), modifiers: z.any().optional(), notes: z.string().optional(),
+      })),
+      notes: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      const orderNumber = `ONL-${nanoid(8).toUpperCase()}`;
+      const subtotal = input.items.reduce((s, i) => s + Number(i.totalPrice), 0);
+      const taxAmount = (subtotal * 0.1).toFixed(2);
+      const total = (subtotal + Number(taxAmount)).toFixed(2);
+      const order = await db.createOrder({
+        orderNumber, type: input.type, customerName: input.customerName,
+        subtotal: subtotal.toFixed(2), taxAmount, total, notes: input.notes,
+      });
+      for (const item of input.items) {
+        await db.createOrderItem({ orderId: order.id, ...item });
+      }
+      return { orderId: order.id, orderNumber };
+    }),
+    orderStatus: publicProcedure.input(z.object({ orderId: z.number() }))
+      .query(({ input }) => db.getOrder(input.orderId)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
