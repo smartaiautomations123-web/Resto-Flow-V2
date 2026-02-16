@@ -43,6 +43,12 @@ export const appRouter = router({
     })).query(({ input }) => db.listTimeEntries(input.staffId, input.dateFrom, input.dateTo)),
   }),
 
+  // ─── Dashboard helpers ───────────────────────────────────────────
+  dashboard: router({
+    staffOnDuty: protectedProcedure.query(() => db.getStaffOnDuty()),
+    shiftsEndingSoon: protectedProcedure.query(() => db.getShiftsEndingSoon()),
+  }),
+
   // ─── Shifts ──────────────────────────────────────────────────────
   shifts: router({
     list: protectedProcedure.input(z.object({

@@ -48,3 +48,12 @@
 
 ## Bugs (continued)
 - [x] Fix OAuth callback error - {"error":"OAuth callback failed"} when signing in (ECONNRESET from stale DB connections, fixed with mysql2 connection pool)
+
+## Dashboard Redesign
+- [x] KPI cards: Today's Revenue, Orders Today, Staff On Duty, Low Stock Items with colored icons and sub-labels
+- [x] Quick Actions grid: New Order, Check Inventory, Staff Schedule, View Reports
+- [x] Alerts & Notifications section with Low Stock Alert and Shift Ending Soon
+- [x] Staff On Duty section showing currently clocked-in staff
+- [x] Low Stock Items section showing ingredients below minimum
+- [x] Recent Orders table with Order ID, Location, Items, Total, Status
+- [x] Dark theme styling matching existing app theme

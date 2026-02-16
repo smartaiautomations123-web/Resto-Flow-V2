@@ -114,6 +114,48 @@ export async function listTimeEntries(staffId?: number, dateFrom?: string, dateT
   return db.select().from(timeClock).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(timeClock.clockIn));
 }
 
+// ─── Staff On Duty ──────────────────────────────────────────────────
+export async function getStaffOnDuty() {
+  const db = await getDb();
+  const rows = await db.select({
+    id: timeClock.id,
+    staffId: timeClock.staffId,
+    staffName: staff.name,
+    staffRole: staff.role,
+    clockIn: timeClock.clockIn,
+  }).from(timeClock)
+    .innerJoin(staff, eq(timeClock.staffId, staff.id))
+    .where(isNull(timeClock.clockOut))
+    .orderBy(desc(timeClock.clockIn));
+  return rows;
+}
+
+export async function getShiftsEndingSoon() {
+  const db = await getDb();
+  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const nowHH = String(now.getHours()).padStart(2, '0');
+  const nowMM = String(now.getMinutes()).padStart(2, '0');
+  const nowTime = `${nowHH}:${nowMM}`;
+  const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  const laterHH = String(twoHoursLater.getHours()).padStart(2, '0');
+  const laterMM = String(twoHoursLater.getMinutes()).padStart(2, '0');
+  const laterTime = `${laterHH}:${laterMM}`;
+  const rows = await db.select({
+    id: shifts.id,
+    staffId: shifts.staffId,
+    staffName: staff.name,
+    endTime: shifts.endTime,
+  }).from(shifts)
+    .innerJoin(staff, eq(shifts.staffId, staff.id))
+    .where(and(
+      eq(shifts.date, today),
+      gte(shifts.endTime, nowTime),
+      lte(shifts.endTime, laterTime),
+    ));
+  return rows;
+}
+
 // ─── Shifts ──────────────────────────────────────────────────────────
 export async function listShifts(dateFrom?: string, dateTo?: string) {
   const db = await getDb();
