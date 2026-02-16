@@ -1,0 +1,21 @@
+{
+  "query": "SELECT * FROM users WHERE openId = 'n5hNGrP4taUY8BuG8xYNJF';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Ez3W5YSPyZPZHU.root --database UirXiMUvdGR7VpZvsvosgf --execute SELECT * FROM users WHERE openId = 'n5hNGrP4taUY8BuG8xYNJF';",
+  "rows": [
+    {
+      "id": "1",
+      "openId": "n5hNGrP4taUY8BuG8xYNJF",
+      "name": "Dj Switch",
+      "email": "djswitch31@gmail.com",
+      "loginMethod": "google",
+      "role": "admin",
+      "createdAt": "2026-02-15 10:35:02",
+      "updatedAt": "2026-02-16 12:55:38",
+      "lastSignedIn": "2026-02-16 12:55:38"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\topenId\tname\temail\tloginMethod\trole\tcreatedAt\tupdatedAt\tlastSignedIn\n1\tn5hNGrP4taUY8BuG8xYNJF\tDj Switch\tdjswitch31@gmail.com\tgoogle\tadmin\t2026-02-15 10:35:02\t2026-02-16 12:55:38\t2026-02-16 12:55:38\n",
+  "stderr": "",
+  "execution_time_ms": 360
+}

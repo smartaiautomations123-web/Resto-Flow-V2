@@ -45,3 +45,6 @@
 - [x] Frontend: Vendor Product Catalog tab with mapping UI
 - [x] Frontend: Price history view with trend indicators
 - [x] Tests for price upload procedures
+
+## Bugs (continued)
+- [x] Fix OAuth callback error - {"error":"OAuth callback failed"} when signing in (ECONNRESET from stale DB connections, fixed with mysql2 connection pool)
