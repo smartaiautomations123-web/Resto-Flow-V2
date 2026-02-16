@@ -422,9 +422,9 @@ export async function updateReservation(id: number, data: Partial<typeof reserva
 export async function getSalesStats(dateFrom: string, dateTo: string) {
   const db = await getDb();
   const result = await db.select({
-    totalRevenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
-    totalOrders: sql<number>`COUNT(*)`,
-    avgTicket: sql<string>`COALESCE(AVG(${orders.total}), 0)`,
+    totalRevenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`.as('total_revenue'),
+    totalOrders: sql<number>`COUNT(*)`.as('total_orders'),
+    avgTicket: sql<string>`COALESCE(AVG(${orders.total}), 0)`.as('avg_ticket'),
   }).from(orders).where(and(
     gte(orders.createdAt, new Date(dateFrom)),
     lte(orders.createdAt, new Date(dateTo)),
@@ -438,8 +438,8 @@ export async function getSalesByCategory(dateFrom: string, dateTo: string) {
   return db.select({
     categoryId: menuItems.categoryId,
     categoryName: menuCategories.name,
-    totalSales: sql<string>`COALESCE(SUM(${orderItems.totalPrice}), 0)`,
-    itemCount: sql<number>`COUNT(${orderItems.id})`,
+    totalSales: sql<string>`COALESCE(SUM(${orderItems.totalPrice}), 0)`.as('total_sales'),
+    itemCount: sql<number>`COUNT(${orderItems.id})`.as('item_count'),
   }).from(orderItems)
     .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
     .innerJoin(menuCategories, eq(menuItems.categoryId, menuCategories.id))
@@ -454,11 +454,12 @@ export async function getSalesByCategory(dateFrom: string, dateTo: string) {
 
 export async function getTopSellingItems(dateFrom: string, dateTo: string, limit = 10) {
   const db = await getDb();
+  const totalQtyExpr = sql<number>`SUM(${orderItems.quantity})`;
   return db.select({
     menuItemId: orderItems.menuItemId,
     name: orderItems.name,
-    totalQty: sql<number>`SUM(${orderItems.quantity})`,
-    totalRevenue: sql<string>`SUM(${orderItems.totalPrice})`,
+    totalQty: totalQtyExpr.as('total_qty'),
+    totalRevenue: sql<string>`SUM(${orderItems.totalPrice})`.as('total_revenue'),
   }).from(orderItems)
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
     .where(and(
@@ -467,24 +468,25 @@ export async function getTopSellingItems(dateFrom: string, dateTo: string, limit
       sql`${orders.status} != 'cancelled'`
     ))
     .groupBy(orderItems.menuItemId, orderItems.name)
-    .orderBy(sql`SUM(${orderItems.quantity}) DESC`)
+    .orderBy(sql`total_qty DESC`)
     .limit(limit);
 }
 
 export async function getDailySales(dateFrom: string, dateTo: string) {
   const db = await getDb();
+  const dateExpr = sql`DATE(${orders.createdAt})`;
   return db.select({
-    date: sql<string>`DATE(${orders.createdAt})`,
-    revenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
-    orderCount: sql<number>`COUNT(*)`,
+    date: sql<string>`DATE(${orders.createdAt})`.as('order_date'),
+    revenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`.as('revenue'),
+    orderCount: sql<number>`COUNT(*)`.as('order_count'),
   }).from(orders)
     .where(and(
       gte(orders.createdAt, new Date(dateFrom)),
       lte(orders.createdAt, new Date(dateTo)),
       sql`${orders.status} != 'cancelled'`
     ))
-    .groupBy(sql`DATE(${orders.createdAt})`)
-    .orderBy(sql`DATE(${orders.createdAt})`);
+    .groupBy(dateExpr)
+    .orderBy(dateExpr);
 }
 
 export async function getLabourCosts(dateFrom: string, dateTo: string) {
@@ -492,7 +494,7 @@ export async function getLabourCosts(dateFrom: string, dateTo: string) {
   return db.select({
     staffId: timeClock.staffId,
     staffName: staff.name,
-    totalHours: sql<string>`COALESCE(SUM(TIMESTAMPDIFF(MINUTE, ${timeClock.clockIn}, COALESCE(${timeClock.clockOut}, NOW())) / 60.0), 0)`,
+    totalHours: sql<string>`COALESCE(SUM(TIMESTAMPDIFF(MINUTE, ${timeClock.clockIn}, COALESCE(${timeClock.clockOut}, NOW())) / 60.0), 0)`.as('total_hours'),
     hourlyRate: staff.hourlyRate,
   }).from(timeClock)
     .innerJoin(staff, eq(timeClock.staffId, staff.id))
@@ -507,8 +509,8 @@ export async function getOrdersByType(dateFrom: string, dateTo: string) {
   const db = await getDb();
   return db.select({
     type: orders.type,
-    count: sql<number>`COUNT(*)`,
-    revenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+    count: sql<number>`COUNT(*)`.as('order_count'),
+    revenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`.as('revenue'),
   }).from(orders)
     .where(and(
       gte(orders.createdAt, new Date(dateFrom)),

@@ -1,0 +1,8 @@
+{
+  "query": "SELECT DATE(`createdAt`), COALESCE(SUM(`total`), 0), COUNT(*) FROM `orders` WHERE (`orders`.`createdAt` >= '2026-02-08 00:00:00' AND `orders`.`createdAt` <= '2026-02-15 00:00:00' AND `orders`.`status` != 'cancelled') GROUP BY DATE(`orders`.`createdAt`) ORDER BY DATE(`orders`.`createdAt`);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Ez3W5YSPyZPZHU.root --database UirXiMUvdGR7VpZvsvosgf --execute SELECT DATE(`createdAt`), COALESCE(SUM(`total`), 0), COUNT(*) FROM `orders` WHERE (`orders`.`createdAt` >= '2026-02-08 00:00:00' AND `orders`.`createdAt` <= '2026-02-15 00:00:00' AND `orders`.`status` != 'cancelled') GROUP BY DATE(`orders`.`createdAt`) ORDER BY DATE(`orders`.`createdAt`);",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1055 (42000) at line 1: Expression #1 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'UirXiMUvdGR7VpZvsvosgf.orders.createdAt' which is not functionally dependent on columns in GROUP BY clause; this is incompatible with sql_mode=only_full_group_by"
+  ]
+}

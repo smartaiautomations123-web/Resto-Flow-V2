@@ -28,3 +28,6 @@
 - [x] Dashboard layout with sidebar navigation
 - [x] Responsive design for tablet/mobile POS use
 - [x] Vitest tests for core procedures
+
+## Bugs
+- [x] Fix SQL query error in getDailySales - DATE() function failing on orders table
