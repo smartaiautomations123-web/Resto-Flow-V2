@@ -31,3 +31,4 @@
 
 ## Bugs
 - [x] Fix SQL query error in getDailySales - DATE() function failing on orders table
+- [x] Fix persistent getDailySales SQL error - GROUP BY alias mismatch with only_full_group_by mode

@@ -474,19 +474,23 @@ export async function getTopSellingItems(dateFrom: string, dateTo: string, limit
 
 export async function getDailySales(dateFrom: string, dateTo: string) {
   const db = await getDb();
-  const dateExpr = sql`DATE(${orders.createdAt})`;
-  return db.select({
-    date: sql<string>`DATE(${orders.createdAt})`.as('order_date'),
-    revenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`.as('revenue'),
-    orderCount: sql<number>`COUNT(*)`.as('order_count'),
-  }).from(orders)
-    .where(and(
-      gte(orders.createdAt, new Date(dateFrom)),
-      lte(orders.createdAt, new Date(dateTo)),
-      sql`${orders.status} != 'cancelled'`
-    ))
-    .groupBy(dateExpr)
-    .orderBy(dateExpr);
+  const rows = await db.execute(sql`
+    SELECT
+      DATE(createdAt) AS order_date,
+      COALESCE(SUM(total), 0) AS revenue,
+      COUNT(*) AS order_count
+    FROM orders
+    WHERE createdAt >= ${new Date(dateFrom)}
+      AND createdAt <= ${new Date(dateTo)}
+      AND status != 'cancelled'
+    GROUP BY order_date
+    ORDER BY order_date
+  `);
+  return (rows[0] as unknown as any[]).map((r: any) => ({
+    date: r.order_date,
+    revenue: String(r.revenue),
+    orderCount: Number(r.order_count),
+  }));
 }
 
 export async function getLabourCosts(dateFrom: string, dateTo: string) {
