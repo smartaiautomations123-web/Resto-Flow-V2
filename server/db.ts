@@ -8,6 +8,7 @@ import {
   ingredients, recipes,
   suppliers, purchaseOrders, purchaseOrderItems,
   customers, reservations,
+  vendorProducts, vendorProductMappings, priceUploads, priceUploadItems, priceHistory,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -522,4 +523,179 @@ export async function getOrdersByType(dateFrom: string, dateTo: string) {
       sql`${orders.status} != 'cancelled'`
     ))
     .groupBy(orders.type);
+}
+
+// ─── Vendor Products ────────────────────────────────────────────────
+export async function listVendorProducts(supplierId?: number) {
+  const db = await getDb();
+  if (supplierId) return db.select().from(vendorProducts).where(eq(vendorProducts.supplierId, supplierId)).orderBy(asc(vendorProducts.description));
+  return db.select().from(vendorProducts).orderBy(asc(vendorProducts.description));
+}
+export async function getVendorProduct(id: number) {
+  const db = await getDb();
+  const r = await db.select().from(vendorProducts).where(eq(vendorProducts.id, id)).limit(1);
+  return r[0];
+}
+export async function getVendorProductByCode(supplierId: number, vendorCode: string) {
+  const db = await getDb();
+  const r = await db.select().from(vendorProducts).where(and(eq(vendorProducts.supplierId, supplierId), eq(vendorProducts.vendorCode, vendorCode))).limit(1);
+  return r[0];
+}
+export async function createVendorProduct(data: typeof vendorProducts.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(vendorProducts).values(data);
+  return { id: r[0].insertId };
+}
+export async function updateVendorProduct(id: number, data: Partial<typeof vendorProducts.$inferInsert>) {
+  const db = await getDb();
+  await db.update(vendorProducts).set(data).where(eq(vendorProducts.id, id));
+}
+
+// ─── Vendor Product Mappings ────────────────────────────────────────
+export async function listVendorProductMappings(supplierId?: number) {
+  const db = await getDb();
+  if (supplierId) {
+    return db.select({
+      id: vendorProductMappings.id,
+      vendorProductId: vendorProductMappings.vendorProductId,
+      ingredientId: vendorProductMappings.ingredientId,
+      createdAt: vendorProductMappings.createdAt,
+    }).from(vendorProductMappings)
+      .innerJoin(vendorProducts, eq(vendorProductMappings.vendorProductId, vendorProducts.id))
+      .where(eq(vendorProducts.supplierId, supplierId));
+  }
+  return db.select().from(vendorProductMappings);
+}
+export async function createVendorProductMapping(vendorProductId: number, ingredientId: number) {
+  const db = await getDb();
+  // Remove existing mapping for this vendor product
+  await db.delete(vendorProductMappings).where(eq(vendorProductMappings.vendorProductId, vendorProductId));
+  const r = await db.insert(vendorProductMappings).values({ vendorProductId, ingredientId });
+  return { id: r[0].insertId };
+}
+export async function deleteVendorProductMapping(id: number) {
+  const db = await getDb();
+  await db.delete(vendorProductMappings).where(eq(vendorProductMappings.id, id));
+}
+export async function getMappingForVendorProduct(vendorProductId: number) {
+  const db = await getDb();
+  const r = await db.select().from(vendorProductMappings).where(eq(vendorProductMappings.vendorProductId, vendorProductId)).limit(1);
+  return r[0];
+}
+
+// ─── Price Uploads ──────────────────────────────────────────────────
+export async function listPriceUploads(supplierId?: number) {
+  const db = await getDb();
+  if (supplierId) return db.select().from(priceUploads).where(eq(priceUploads.supplierId, supplierId)).orderBy(desc(priceUploads.createdAt));
+  return db.select().from(priceUploads).orderBy(desc(priceUploads.createdAt));
+}
+export async function getPriceUpload(id: number) {
+  const db = await getDb();
+  const r = await db.select().from(priceUploads).where(eq(priceUploads.id, id)).limit(1);
+  return r[0];
+}
+export async function createPriceUpload(data: typeof priceUploads.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(priceUploads).values(data);
+  return { id: r[0].insertId };
+}
+export async function updatePriceUpload(id: number, data: Partial<typeof priceUploads.$inferInsert>) {
+  const db = await getDb();
+  await db.update(priceUploads).set(data).where(eq(priceUploads.id, id));
+}
+
+// ─── Price Upload Items ─────────────────────────────────────────────
+export async function listPriceUploadItems(uploadId: number) {
+  const db = await getDb();
+  return db.select().from(priceUploadItems).where(eq(priceUploadItems.uploadId, uploadId)).orderBy(asc(priceUploadItems.description));
+}
+export async function createPriceUploadItem(data: typeof priceUploadItems.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(priceUploadItems).values(data);
+  return { id: r[0].insertId };
+}
+export async function bulkCreatePriceUploadItems(items: (typeof priceUploadItems.$inferInsert)[]) {
+  const db = await getDb();
+  if (items.length === 0) return;
+  // Insert in batches of 50 to avoid query size limits
+  for (let i = 0; i < items.length; i += 50) {
+    const batch = items.slice(i, i + 50);
+    await db.insert(priceUploadItems).values(batch);
+  }
+}
+
+// ─── Price History ──────────────────────────────────────────────────
+export async function listPriceHistory(vendorProductId: number, limit = 52) {
+  const db = await getDb();
+  return db.select().from(priceHistory).where(eq(priceHistory.vendorProductId, vendorProductId)).orderBy(desc(priceHistory.recordedAt)).limit(limit);
+}
+export async function createPriceHistoryRecord(data: typeof priceHistory.$inferInsert) {
+  const db = await getDb();
+  const r = await db.insert(priceHistory).values(data);
+  return { id: r[0].insertId };
+}
+
+// ─── Apply Price Upload (update vendor products + ingredient costs) ─
+export async function applyPriceUpload(uploadId: number) {
+  const db = await getDb();
+  const upload = await getPriceUpload(uploadId);
+  if (!upload) throw new Error("Upload not found");
+  
+  const items = await listPriceUploadItems(uploadId);
+  let priceChanges = 0;
+  let newItems = 0;
+  
+  for (const item of items) {
+    // Find or create vendor product
+    let vp = await getVendorProductByCode(upload.supplierId, item.vendorCode);
+    if (!vp) {
+      const created = await createVendorProduct({
+        supplierId: upload.supplierId,
+        vendorCode: item.vendorCode,
+        description: item.description as string,
+        packSize: item.packSize,
+        currentCasePrice: item.casePrice || "0",
+        currentUnitPrice: item.calculatedUnitPrice || item.unitPrice || "0",
+        lastUpdated: new Date(),
+      });
+      vp = await getVendorProduct(created.id);
+      newItems++;
+    } else {
+      // Check if price changed
+      if (Number(vp.currentCasePrice) !== Number(item.casePrice)) {
+        priceChanges++;
+      }
+      await updateVendorProduct(vp.id, {
+        description: item.description as string,
+        packSize: item.packSize,
+        currentCasePrice: item.casePrice || "0",
+        currentUnitPrice: item.calculatedUnitPrice || item.unitPrice || "0",
+        lastUpdated: new Date(),
+      });
+    }
+    
+    // Record price history
+    await createPriceHistoryRecord({
+      vendorProductId: vp!.id,
+      uploadId,
+      casePrice: item.casePrice || "0",
+      unitPrice: item.calculatedUnitPrice || item.unitPrice || "0",
+    });
+    
+    // Update mapped ingredient cost if mapping exists
+    const mapping = await getMappingForVendorProduct(vp!.id);
+    if (mapping) {
+      const unitCost = item.calculatedUnitPrice || item.unitPrice || item.casePrice || "0";
+      await updateIngredient(mapping.ingredientId, { costPerUnit: unitCost });
+    }
+  }
+  
+  await updatePriceUpload(uploadId, {
+    status: "applied",
+    totalItems: items.length,
+    newItems,
+    priceChanges,
+  });
+  
+  return { totalItems: items.length, newItems, priceChanges };
 }

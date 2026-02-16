@@ -245,6 +245,75 @@ export const reservations = mysqlTable("reservations", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+// ─── Vendor Products (per-vendor product catalog) ───────────────────
+export const vendorProducts = mysqlTable("vendor_products", {
+  id: int("id").autoincrement().primaryKey(),
+  supplierId: int("supplierId").notNull(),
+  vendorCode: varchar("vendorCode", { length: 32 }).notNull(),
+  description: text("description").notNull(),
+  packSize: varchar("packSize", { length: 128 }), // e.g. "4/5# 4/5lb", "12/1pint"
+  packUnit: varchar("packUnit", { length: 32 }), // normalized unit: lb, oz, each, case, etc.
+  packQty: decimal("packQty", { precision: 10, scale: 4 }), // total qty in smallest unit per pack
+  unitPricePer: varchar("unitPricePer", { length: 32 }), // "lb", "each", "oz", etc.
+  currentCasePrice: decimal("currentCasePrice", { precision: 10, scale: 2 }).default("0"),
+  currentUnitPrice: decimal("currentUnitPrice", { precision: 10, scale: 4 }).default("0"), // # price or calculated
+  lastUpdated: timestamp("lastUpdated"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Vendor Product Mappings (vendor code → internal ingredient) ────
+export const vendorProductMappings = mysqlTable("vendor_product_mappings", {
+  id: int("id").autoincrement().primaryKey(),
+  vendorProductId: int("vendorProductId").notNull(),
+  ingredientId: int("ingredientId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Price Uploads (upload history) ─────────────────────────────────
+export const priceUploads = mysqlTable("price_uploads", {
+  id: int("id").autoincrement().primaryKey(),
+  supplierId: int("supplierId").notNull(),
+  fileName: varchar("fileName", { length: 512 }).notNull(),
+  fileUrl: text("fileUrl"),
+  dateRangeStart: varchar("dateRangeStart", { length: 10 }), // from PDF header
+  dateRangeEnd: varchar("dateRangeEnd", { length: 10 }),
+  status: mysqlEnum("status", ["processing", "review", "applied", "failed"]).default("processing").notNull(),
+  totalItems: int("totalItems").default(0),
+  newItems: int("newItems").default(0),
+  priceChanges: int("priceChanges").default(0),
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Price Upload Items (extracted line items from each upload) ─────
+export const priceUploadItems = mysqlTable("price_upload_items", {
+  id: int("id").autoincrement().primaryKey(),
+  uploadId: int("uploadId").notNull(),
+  vendorCode: varchar("vendorCode", { length: 32 }).notNull(),
+  description: text("description").notNull(),
+  casePrice: decimal("casePrice", { precision: 10, scale: 2 }),
+  unitPrice: decimal("unitPrice", { precision: 10, scale: 4 }), // # price from PDF
+  packSize: varchar("packSize", { length: 128 }),
+  calculatedUnitPrice: decimal("calculatedUnitPrice", { precision: 10, scale: 4 }),
+  previousCasePrice: decimal("previousCasePrice", { precision: 10, scale: 2 }),
+  priceChange: decimal("priceChange", { precision: 10, scale: 2 }), // difference
+  isNew: boolean("isNew").default(false).notNull(),
+  vendorProductId: int("vendorProductId"), // link to existing vendor_product if matched
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Price History (historical price records for trends) ────────────
+export const priceHistory = mysqlTable("price_history", {
+  id: int("id").autoincrement().primaryKey(),
+  vendorProductId: int("vendorProductId").notNull(),
+  uploadId: int("uploadId"),
+  casePrice: decimal("casePrice", { precision: 10, scale: 2 }),
+  unitPrice: decimal("unitPrice", { precision: 10, scale: 4 }),
+  recordedAt: timestamp("recordedAt").defaultNow().notNull(),
+});
+
 // ─── Type exports ────────────────────────────────────────────────────
 export type Staff = typeof staff.$inferSelect;
 export type InsertStaff = typeof staff.$inferInsert;
@@ -260,3 +329,8 @@ export type Supplier = typeof suppliers.$inferSelect;
 export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type Reservation = typeof reservations.$inferSelect;
+export type VendorProduct = typeof vendorProducts.$inferSelect;
+export type VendorProductMapping = typeof vendorProductMappings.$inferSelect;
+export type PriceUpload = typeof priceUploads.$inferSelect;
+export type PriceUploadItem = typeof priceUploadItems.$inferSelect;
+export type PriceHistoryRecord = typeof priceHistory.$inferSelect;

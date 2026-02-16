@@ -32,3 +32,16 @@
 ## Bugs
 - [x] Fix SQL query error in getDailySales - DATE() function failing on orders table
 - [x] Fix persistent getDailySales SQL error - GROUP BY alias mismatch with only_full_group_by mode
+
+## Vendor Price Uploads Feature
+- [x] Database schema: vendor_products, vendor_product_mappings, price_uploads, price_upload_items, price_history tables
+- [x] Backend: PDF upload endpoint with S3 storage
+- [x] Backend: LLM-powered PDF parsing to extract vendor product data
+- [x] Backend: Vendor auto-detection from PDF header
+- [x] Backend: Price normalization (pack size parsing, per-unit calculation)
+- [x] Backend: Vendor code → internal ingredient mapping CRUD
+- [x] Backend: Apply prices flow (update ingredient costPerUnit + price_history)
+- [x] Frontend: Price Uploads page with upload, review, and apply workflow
+- [x] Frontend: Vendor Product Catalog tab with mapping UI
+- [x] Frontend: Price history view with trend indicators
+- [x] Tests for price upload procedures

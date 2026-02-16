@@ -5,6 +5,8 @@ import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_
 import { z } from "zod";
 import * as db from "./db";
 import { nanoid } from "nanoid";
+import { invokeLLM } from "./_core/llm";
+import { storagePut } from "./storage";
 
 export const appRouter = router({
   system: systemRouter,
@@ -340,6 +342,197 @@ export const appRouter = router({
     }),
     orderStatus: publicProcedure.input(z.object({ orderId: z.number() }))
       .query(({ input }) => db.getOrder(input.orderId)),
+  }),
+
+  // ─── Vendor Products & Price Uploads ─────────────────────────────
+  vendorProducts: router({
+    list: protectedProcedure.input(z.object({ supplierId: z.number().optional() }).optional())
+      .query(({ input }) => db.listVendorProducts(input?.supplierId)),
+    get: protectedProcedure.input(z.object({ id: z.number() }))
+      .query(({ input }) => db.getVendorProduct(input.id)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), packSize: z.string().optional(), packUnit: z.string().optional(),
+      packQty: z.string().optional(), unitPricePer: z.string().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateVendorProduct(id, data); }),
+  }),
+
+  vendorMappings: router({
+    list: protectedProcedure.input(z.object({ supplierId: z.number().optional() }).optional())
+      .query(({ input }) => db.listVendorProductMappings(input?.supplierId)),
+    create: protectedProcedure.input(z.object({
+      vendorProductId: z.number(), ingredientId: z.number(),
+    })).mutation(({ input }) => db.createVendorProductMapping(input.vendorProductId, input.ingredientId)),
+    delete: protectedProcedure.input(z.object({ id: z.number() }))
+      .mutation(({ input }) => db.deleteVendorProductMapping(input.id)),
+  }),
+
+  priceUploads: router({
+    list: protectedProcedure.input(z.object({ supplierId: z.number().optional() }).optional())
+      .query(({ input }) => db.listPriceUploads(input?.supplierId)),
+    get: protectedProcedure.input(z.object({ id: z.number() }))
+      .query(({ input }) => db.getPriceUpload(input.id)),
+    items: protectedProcedure.input(z.object({ uploadId: z.number() }))
+      .query(({ input }) => db.listPriceUploadItems(input.uploadId)),
+
+    // Upload a PDF order guide and parse it with LLM
+    upload: protectedProcedure.input(z.object({
+      supplierId: z.number(),
+      fileName: z.string(),
+      fileBase64: z.string(), // base64 encoded PDF
+    })).mutation(async ({ input }) => {
+      // 1. Upload PDF to S3
+      const fileBuffer = Buffer.from(input.fileBase64, "base64");
+      const fileKey = `price-uploads/${input.supplierId}/${nanoid(12)}-${input.fileName}`;
+      const { url: fileUrl } = await storagePut(fileKey, fileBuffer, "application/pdf");
+
+      // 2. Create upload record
+      const upload = await db.createPriceUpload({
+        supplierId: input.supplierId,
+        fileName: input.fileName,
+        fileUrl,
+        status: "processing",
+      });
+
+      // 3. Use LLM to extract product data from the PDF
+      try {
+        const llmResult = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are a data extraction specialist. Extract ALL product line items from this vendor order guide PDF. For each product, extract:
+- code: the vendor product code (usually a 5-digit number)
+- description: the full product description
+- casePrice: the case/pack price (the main price column, usually the rightmost price)
+- unitPrice: the per-unit/per-lb price (the # Price column if present, may be null for many items)
+- packSize: the pack size info from the description (e.g. "4/5#", "12/1 pint", "6/10")
+
+IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`,
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "file_url" as const,
+                  file_url: {
+                    url: fileUrl,
+                    mime_type: "application/pdf" as const,
+                  },
+                },
+                {
+                  type: "text" as const,
+                  text: "Extract all product line items from this order guide. Return a JSON array of objects.",
+                },
+              ],
+            },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "order_guide_products",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  vendorName: { type: "string", description: "Name of the vendor/supplier" },
+                  dateRange: { type: "string", description: "Date range from the PDF header, e.g. 02/03/2025 - 02/09/2025" },
+                  products: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        code: { type: "string", description: "Vendor product code" },
+                        description: { type: "string", description: "Product description" },
+                        casePrice: { type: ["string", "null"], description: "Case/pack price" },
+                        unitPrice: { type: ["string", "null"], description: "Per-unit/per-lb price (# Price)" },
+                        packSize: { type: ["string", "null"], description: "Pack size from description" },
+                      },
+                      required: ["code", "description", "casePrice", "unitPrice", "packSize"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["vendorName", "dateRange", "products"],
+                additionalProperties: false,
+              },
+            },
+          },
+        });
+
+        const content = llmResult.choices[0]?.message?.content;
+        const parsed = JSON.parse(typeof content === "string" ? content : JSON.stringify(content));
+        const products = parsed.products || [];
+
+        // 4. Match against existing vendor products and create upload items
+        const uploadItems: any[] = [];
+        let newCount = 0;
+        let changeCount = 0;
+
+        for (const p of products) {
+          if (!p.code || !p.description) continue;
+          const existing = await db.getVendorProductByCode(input.supplierId, p.code);
+          const previousCasePrice = existing ? String(existing.currentCasePrice) : null;
+          const isNew = !existing;
+          const priceChange = existing && p.casePrice
+            ? (Number(p.casePrice) - Number(existing.currentCasePrice)).toFixed(2)
+            : null;
+
+          if (isNew) newCount++;
+          if (priceChange && Number(priceChange) !== 0) changeCount++;
+
+          uploadItems.push({
+            uploadId: upload.id,
+            vendorCode: p.code,
+            description: p.description,
+            casePrice: p.casePrice || null,
+            unitPrice: p.unitPrice || null,
+            packSize: p.packSize || null,
+            calculatedUnitPrice: p.unitPrice || null,
+            previousCasePrice,
+            priceChange,
+            isNew,
+            vendorProductId: existing?.id || null,
+          });
+        }
+
+        await db.bulkCreatePriceUploadItems(uploadItems);
+
+        // Parse date range
+        let dateStart = null, dateEnd = null;
+        if (parsed.dateRange) {
+          const parts = parsed.dateRange.split(" - ");
+          if (parts.length === 2) {
+            dateStart = parts[0].trim();
+            dateEnd = parts[1].trim();
+          }
+        }
+
+        await db.updatePriceUpload(upload.id, {
+          status: "review",
+          totalItems: uploadItems.length,
+          newItems: newCount,
+          priceChanges: changeCount,
+          dateRangeStart: dateStart,
+          dateRangeEnd: dateEnd,
+        });
+
+        return { uploadId: upload.id, totalItems: uploadItems.length, newItems: newCount, priceChanges: changeCount };
+      } catch (error: any) {
+        await db.updatePriceUpload(upload.id, {
+          status: "failed",
+          errorMessage: error.message || "Failed to parse PDF",
+        });
+        throw error;
+      }
+    }),
+
+    // Apply prices from a reviewed upload
+    applyPrices: protectedProcedure.input(z.object({ uploadId: z.number() }))
+      .mutation(({ input }) => db.applyPriceUpload(input.uploadId)),
+  }),
+
+  priceHistory: router({
+    list: protectedProcedure.input(z.object({ vendorProductId: z.number(), limit: z.number().optional() }))
+      .query(({ input }) => db.listPriceHistory(input.vendorProductId, input.limit)),
   }),
 });
 
