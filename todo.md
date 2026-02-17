@@ -55,14 +55,14 @@
 - [x] Store Z-report history for audit trail
 - [x] Add Z-report endpoint to backend
 
-### 2. Void & Refund Management UI
-- [ ] Create dedicated void/refund management page
-- [ ] Show pending voids/refunds with reason and staff member
-- [ ] Implement permission-based approval (manager/owner only)
-- [ ] Add void reason tracking (customer request, mistake, damage, etc.)
-- [ ] Track refund method (original payment, store credit, cash)
-- [ ] Add audit trail for all voids/refunds
-- [ ] Backend: Add void/refund reason enum to orders table
+### 2. Void & Refund Management UI (Completed)
+- [x] Create dedicated void/refund management page
+- [x] Show pending voids/refunds with reason and staff member
+- [x] Implement permission-based approval (admin only)
+- [x] Add void reason tracking (customer request, mistake, damage, comp, other)
+- [x] Track refund method (original payment, store credit, cash)
+- [x] Add audit trail for all voids/refunds
+- [x] Backend: Add void/refund reason enum to orders table
 
 ### 3. QR Code Generation for Managers
 - [ ] Create QR code generation UI in Settings or Reservations page
@@ -289,3 +289,19 @@
 - [x] Implement TXT export functionality
 - [x] Add Z-report history with filtering and search
 - [x] Write tests for Z-report procedures (10 tests, all passing)
+
+
+## Void & Refund Management Feature (Completed)
+- [x] Add voidReason enum to schema (customer_request, mistake, damage, comp, other)
+- [x] Add refundMethod enum to schema (original_payment, store_credit, cash)
+- [x] Add voidReason and refundMethod fields to orders table
+- [x] Add voidApprovedBy and voidApprovedAt fields to orders table
+- [x] Create void_audit_log table for tracking all void/refund changes
+- [x] Create DB helpers for void/refund management
+- [x] Build tRPC routers for void/refund endpoints
+- [x] Create Void & Refund Management page
+- [x] Implement pending voids/refunds list with filtering
+- [x] Add void/refund detail modal with reason and method selection
+- [x] Implement approval workflow (admin only)
+- [x] Add audit trail display showing all void/refund history
+- [x] Write tests for void/refund procedures (6 tests, all passing)

@@ -20,6 +20,7 @@ import TableOrdering from "./pages/TableOrdering";
 import PriceUploads from "./pages/PriceUploads";
 import FloorPlan from "./pages/FloorPlan";
 import ZReports from "./pages/ZReports";
+import VoidRefunds from "./pages/VoidRefunds";
 
 function Router() {
   return (
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/price-uploads" component={() => <DashboardLayout><PriceUploads /></DashboardLayout>} />
       <Route path="/floor-plan" component={() => <DashboardLayout><FloorPlan /></DashboardLayout>} />
       <Route path="/z-reports" component={() => <DashboardLayout><ZReports /></DashboardLayout>} />
+      <Route path="/void-refunds" component={() => <DashboardLayout><VoidRefunds /></DashboardLayout>} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

@@ -131,7 +131,7 @@ export const orders = mysqlTable("orders", {
   id: int("id").autoincrement().primaryKey(),
   orderNumber: varchar("orderNumber", { length: 32 }).notNull(),
   type: mysqlEnum("type", ["dine_in", "takeaway", "delivery", "collection", "online"]).default("dine_in").notNull(),
-  status: mysqlEnum("status", ["pending", "preparing", "ready", "served", "completed", "cancelled"]).default("pending").notNull(),
+  status: mysqlEnum("status", ["pending", "preparing", "ready", "served", "completed", "cancelled", "voided"]).default("pending").notNull(),
   tableId: int("tableId"),
   staffId: int("staffId"),
   customerId: int("customerId"),
@@ -144,11 +144,33 @@ export const orders = mysqlTable("orders", {
   total: decimal("total", { precision: 10, scale: 2 }).default("0"),
   paymentMethod: mysqlEnum("paymentMethod", ["card", "cash", "split", "online", "unpaid"]).default("unpaid"),
   paymentStatus: mysqlEnum("paymentStatus", ["unpaid", "paid", "refunded", "partial"]).default("unpaid"),
+  voidReason: mysqlEnum("voidReason", ["customer_request", "mistake", "damage", "comp", "other"]),
+  refundMethod: mysqlEnum("refundMethod", ["original_payment", "store_credit", "cash"]),
+  voidRequestedBy: int("voidRequestedBy"),
+  voidRequestedAt: timestamp("voidRequestedAt"),
+  voidApprovedBy: int("voidApprovedBy"),
+  voidApprovedAt: timestamp("voidApprovedAt"),
+  voidNotes: text("voidNotes"),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   completedAt: timestamp("completedAt"),
 });
+
+// ─── Void Audit Log ──────────────────────────────────────────────────
+export const voidAuditLog = mysqlTable("void_audit_log", {
+  id: int("id").autoincrement().primaryKey(),
+  orderId: int("orderId").notNull(),
+  action: mysqlEnum("action", ["void_requested", "void_approved", "void_rejected", "refund_processed"]).notNull(),
+  reason: varchar("reason", { length: 255 }),
+  refundMethod: mysqlEnum("refundMethod", ["original_payment", "store_credit", "cash"]),
+  performedBy: int("performedBy").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type VoidAuditLog = typeof voidAuditLog.$inferSelect;
+export type InsertVoidAuditLog = typeof voidAuditLog.$inferInsert;
 
 // ─── Order Items ─────────────────────────────────────────────────────
 export const orderItems = mysqlTable("order_items", {

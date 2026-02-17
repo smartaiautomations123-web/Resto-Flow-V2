@@ -24,7 +24,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, ShoppingCart, ChefHat, UtensilsCrossed,
   Package, Users, BarChart3, Truck, Heart, CalendarDays,
-  LogOut, PanelLeft, Flame, Upload, Grid3x3, Receipt,
+  LogOut, PanelLeft, Flame, Upload, Grid3x3, Receipt, AlertCircle,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -45,6 +45,7 @@ const menuItems = [
   { icon: Grid3x3, label: "Floor Plan", path: "/floor-plan" },
   { icon: Upload, label: "Price Uploads", path: "/price-uploads" },
   { icon: Receipt, label: "Z-Reports", path: "/z-reports" },
+  { icon: AlertCircle, label: "Void & Refunds", path: "/void-refunds" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

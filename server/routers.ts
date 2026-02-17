@@ -1,4 +1,5 @@
 import { COOKIE_NAME } from "@shared/const";
+import { TRPCError } from "@trpc/server";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
@@ -573,6 +574,26 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
       .query(({ input }) => db.getZReportDetails(input.reportId)),
     delete: adminProcedure.input(z.object({ reportId: z.number() }))
       .mutation(({ input }) => db.deleteZReport(input.reportId)),
+  }),
+
+  voidRefunds: router({
+    getPending: adminProcedure.query(() => db.getPendingVoids()),
+    getHistory: protectedProcedure.input(z.object({ orderId: z.number() }))
+      .query(({ input }) => db.getVoidHistory(input.orderId)),
+    requestVoid: protectedProcedure.input(z.object({
+      orderId: z.number(),
+      reason: z.enum(["customer_request", "mistake", "damage", "comp", "other"]),
+      notes: z.string().optional(),
+    })).mutation(({ input, ctx }) => db.requestVoid(input.orderId, input.reason, input.notes || "", ctx.user.id)),
+    approveVoid: adminProcedure.input(z.object({
+      orderId: z.number(),
+      refundMethod: z.enum(["original_payment", "store_credit", "cash"]),
+      notes: z.string().optional(),
+    })).mutation(({ input, ctx }) => db.approveVoid(input.orderId, input.refundMethod, ctx.user.id, input.notes || "")),
+    rejectVoid: adminProcedure.input(z.object({
+      orderId: z.number(),
+      notes: z.string().optional(),
+    })).mutation(({ input, ctx }) => db.rejectVoid(input.orderId, ctx.user.id, input.notes || "")),
   }),
 });
 

@@ -11,6 +11,7 @@ import {
   customers, reservations,
   vendorProducts, vendorProductMappings, priceUploads, priceUploadItems, priceHistory,
   zReports, zReportItems, zReportShifts,
+  voidAuditLog, InsertVoidAuditLog,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -951,4 +952,134 @@ export async function deleteZReport(reportId: number) {
   await db.delete(zReports).where(eq(zReports.id, reportId));
 
   return true;
+}
+
+
+// ─── Void & Refund Management ───────────────────────────────────────
+export async function getPendingVoids() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db
+    .select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      type: orders.type,
+      total: orders.total,
+      voidReason: orders.voidReason,
+      voidRequestedBy: orders.voidRequestedBy,
+      voidRequestedAt: orders.voidRequestedAt,
+      voidNotes: orders.voidNotes,
+      staffName: staff.name,
+    })
+    .from(orders)
+    .leftJoin(staff, eq(orders.voidRequestedBy, staff.id))
+    .where(and(
+      eq(orders.status, "voided"),
+      isNull(orders.voidApprovedAt)
+    ))
+    .orderBy(desc(orders.voidRequestedAt));
+}
+
+export async function getVoidHistory(orderId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db
+    .select({
+      id: voidAuditLog.id,
+      action: voidAuditLog.action,
+      reason: voidAuditLog.reason,
+      refundMethod: voidAuditLog.refundMethod,
+      performedBy: voidAuditLog.performedBy,
+      performedByName: staff.name,
+      notes: voidAuditLog.notes,
+      createdAt: voidAuditLog.createdAt,
+    })
+    .from(voidAuditLog)
+    .leftJoin(staff, eq(voidAuditLog.performedBy, staff.id))
+    .where(eq(voidAuditLog.orderId, orderId))
+    .orderBy(desc(voidAuditLog.createdAt));
+}
+
+export async function requestVoid(orderId: number, reason: string, notes: string, staffId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // Update order status to voided and record request
+  await db
+    .update(orders)
+    .set({
+      status: "voided",
+      voidReason: reason as any,
+      voidRequestedBy: staffId,
+      voidRequestedAt: new Date(),
+      voidNotes: notes,
+      updatedAt: new Date(),
+    })
+    .where(eq(orders.id, orderId));
+  
+  // Log the void request
+  await db.insert(voidAuditLog).values({
+    orderId,
+    action: "void_requested",
+    reason,
+    performedBy: staffId,
+    notes,
+    createdAt: new Date(),
+  });
+}
+
+export async function approveVoid(orderId: number, refundMethod: string, approverStaffId: number, notes: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // Update order with approval
+  await db
+    .update(orders)
+    .set({
+      voidApprovedBy: approverStaffId,
+      voidApprovedAt: new Date(),
+      refundMethod: refundMethod as any,
+      paymentStatus: "refunded",
+      updatedAt: new Date(),
+    })
+    .where(eq(orders.id, orderId));
+  
+  // Log the approval
+  await db.insert(voidAuditLog).values({
+    orderId,
+    action: "void_approved",
+    refundMethod: refundMethod as any,
+    performedBy: approverStaffId,
+    notes,
+    createdAt: new Date(),
+  });
+}
+
+export async function rejectVoid(orderId: number, rejectorStaffId: number, notes: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // Revert order status back to completed
+  await db
+    .update(orders)
+    .set({
+      status: "completed",
+      voidReason: null,
+      voidRequestedBy: null,
+      voidRequestedAt: null,
+      voidNotes: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(orders.id, orderId));
+  
+  // Log the rejection
+  await db.insert(voidAuditLog).values({
+    orderId,
+    action: "void_rejected",
+    performedBy: rejectorStaffId,
+    notes,
+    createdAt: new Date(),
+  });
 }
