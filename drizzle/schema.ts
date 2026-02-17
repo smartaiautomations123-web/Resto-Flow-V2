@@ -328,6 +328,48 @@ export const priceHistory = mysqlTable("price_history", {
   recordedAt: timestamp("recordedAt").defaultNow().notNull(),
 });
 
+// ─── Z-Reports (End-of-Day summaries) ───────────────────────────────
+export const zReports = mysqlTable("z_reports", {
+  id: int("id").autoincrement().primaryKey(),
+  reportDate: varchar("reportDate", { length: 10 }).notNull(), // YYYY-MM-DD
+  totalRevenue: decimal("totalRevenue", { precision: 12, scale: 2 }).default("0").notNull(),
+  totalOrders: int("totalOrders").default(0).notNull(),
+  totalDiscounts: decimal("totalDiscounts", { precision: 12, scale: 2 }).default("0").notNull(),
+  totalVoids: decimal("totalVoids", { precision: 12, scale: 2 }).default("0").notNull(),
+  totalTips: decimal("totalTips", { precision: 12, scale: 2 }).default("0").notNull(),
+  cashTotal: decimal("cashTotal", { precision: 12, scale: 2 }).default("0").notNull(),
+  cardTotal: decimal("cardTotal", { precision: 12, scale: 2 }).default("0").notNull(),
+  splitTotal: decimal("splitTotal", { precision: 12, scale: 2 }).default("0").notNull(),
+  notes: text("notes"),
+  generatedBy: int("generatedBy").notNull(), // staff id
+  generatedAt: timestamp("generatedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Z-Report Items (breakdown by category/payment method) ──────────
+export const zReportItems = mysqlTable("z_report_items", {
+  id: int("id").autoincrement().primaryKey(),
+  reportId: int("reportId").notNull(),
+  categoryId: int("categoryId"),
+  categoryName: varchar("categoryName", { length: 255 }),
+  itemCount: int("itemCount").default(0).notNull(),
+  itemRevenue: decimal("itemRevenue", { precision: 12, scale: 2 }).default("0").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Z-Report Shifts (breakdown by shift) ────────────────────────────
+export const zReportShifts = mysqlTable("z_report_shifts", {
+  id: int("id").autoincrement().primaryKey(),
+  reportId: int("reportId").notNull(),
+  shiftNumber: int("shiftNumber").notNull(), // 1, 2, 3, etc.
+  staffId: int("staffId"),
+  shiftRevenue: decimal("shiftRevenue", { precision: 12, scale: 2 }).default("0").notNull(),
+  shiftOrders: int("shiftOrders").default(0).notNull(),
+  startTime: timestamp("startTime"),
+  endTime: timestamp("endTime"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 // ─── Type exports ────────────────────────────────────────────────────
 export type Staff = typeof staff.$inferSelect;
 export type InsertStaff = typeof staff.$inferInsert;
@@ -348,3 +390,7 @@ export type VendorProductMapping = typeof vendorProductMappings.$inferSelect;
 export type PriceUpload = typeof priceUploads.$inferSelect;
 export type PriceUploadItem = typeof priceUploadItems.$inferSelect;
 export type PriceHistoryRecord = typeof priceHistory.$inferSelect;
+export type ZReport = typeof zReports.$inferSelect;
+export type InsertZReport = typeof zReports.$inferInsert;
+export type ZReportItem = typeof zReportItems.$inferSelect;
+export type ZReportShift = typeof zReportShifts.$inferSelect;

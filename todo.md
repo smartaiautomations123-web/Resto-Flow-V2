@@ -34,17 +34,26 @@
 - [x] OAuth authentication with role-based access
 - [x] MySQL connection pool with proper error handling
 
+### Phase 4 - Floor Plan & Operations
+- [x] Floor Plan Visualization (drag-and-drop canvas, multi-section support)
+- [x] Table status indicators (free=green, occupied=red, reserved=yellow, cleaning=gray)
+- [x] Real-time table status updates with 3-second polling
+- [x] Section management (create, rename, delete sections)
+- [x] Table detail modal with active orders display
+- [x] Backend: sections table, floor plan CRUD endpoints
+- [x] 6 tRPC routers for floor plan operations
+
 ---
 
 ## HIGH PRIORITY - Missing Core Features
 
-### 1. End-of-Day (Z) Reports
-- [ ] Create Z-report page/modal showing daily summary
-- [ ] Include: total revenue, total orders, cash vs card breakdown, discounts, voids
-- [ ] Show by-shift summary if multiple shifts
-- [ ] Export Z-report as PDF
-- [ ] Store Z-report history for audit trail
-- [ ] Add Z-report endpoint to backend
+### 1. End-of-Day (Z) Reports (Completed)
+- [x] Create Z-report page/modal showing daily summary
+- [x] Include: total revenue, total orders, cash vs card breakdown, discounts, voids
+- [x] Show by-shift summary if multiple shifts
+- [x] Export Z-report as TXT
+- [x] Store Z-report history for audit trail
+- [x] Add Z-report endpoint to backend
 
 ### 2. Void & Refund Management UI
 - [ ] Create dedicated void/refund management page
@@ -63,17 +72,7 @@
 - [ ] Store QR code URLs in database for easy reprint
 - [ ] Add QR code library (qrcode.react or similar)
 
-### 4. Floor Plan Visualization
-- [ ] Create floor plan editor page
-- [ ] Drag-and-drop table positioning on canvas
-- [ ] Visual table status indicators (free=green, occupied=red, reserved=yellow, cleaning=gray)
-- [ ] Real-time status updates on floor plan
-- [ ] Click table to view details, assign reservation, or seat guest
-- [ ] Support multiple sections/areas
-- [ ] Save floor plan layout to database
-- [ ] Backend: Ensure tables.positionX/Y are properly used
-
-### 5. Customer Order History Detail View
+### 4. Customer Order History Detail View
 - [ ] Create customer detail page showing full profile
 - [ ] Display customer's complete order history with dates, items, totals
 - [ ] Show order details modal (items, modifiers, notes)
@@ -82,7 +81,7 @@
 - [ ] Add "repeat order" quick action
 - [ ] Link from Customers list to detail view
 
-### 6. Automatic Plate Cost Calculation
+### 5. Automatic Plate Cost Calculation
 - [ ] Backend: Add procedure to calculate menu item cost from linked recipes
 - [ ] Calculate cost = sum(ingredient.costPerUnit * recipe.quantity)
 - [ ] Update menu item's `cost` field when recipes change
@@ -94,7 +93,7 @@
 
 ## MEDIUM PRIORITY - Enhanced Features
 
-### 7. Waitlist Management
+### 6. Waitlist Management
 - [ ] Add waitlist table to schema (name, phone, partySize, estimatedWaitTime, notes)
 - [ ] Create waitlist page showing queue
 - [ ] Add "Add to Waitlist" button on Reservations page
@@ -103,7 +102,7 @@
 - [ ] Move from waitlist to reservation when table available
 - [ ] Backend: Create waitlist CRUD endpoints
 
-### 8. Profitability Analysis Dashboard
+### 7. Profitability Analysis Dashboard
 - [ ] Create profitability page with tabs: by-item, by-category, by-shift
 - [ ] Show: revenue, COGS, labour cost, gross profit, profit margin %
 - [ ] Identify top 10 most/least profitable items
@@ -112,7 +111,7 @@
 - [ ] Export profitability report as PDF
 - [ ] Backend: Add profit calculation queries
 
-### 9. Customer Segmentation & Communication
+### 8. Customer Segmentation & Communication
 - [ ] Add customer tags/segments (VIP, frequent, new, inactive, etc.)
 - [ ] Create customer segment management page
 - [ ] Build email/SMS campaign builder (basic)
@@ -120,7 +119,7 @@
 - [ ] Track campaign performance (send date, open rate, etc.)
 - [ ] Backend: Add customer_segments table and segment_members table
 
-### 10. Order History & Receipt Printing
+### 9. Order History & Receipt Printing
 - [ ] Create order history page with search/filter by date, customer, status
 - [ ] Show order details modal with full item breakdown
 - [ ] Print receipt (thermal printer format or PDF)
@@ -128,7 +127,7 @@
 - [ ] Reprint old receipts
 - [ ] Backend: Ensure all order data is properly stored for retrieval
 
-### 11. Real-Time Order Status Tracking (for Online Orders)
+### 10. Real-Time Order Status Tracking (for Online Orders)
 - [ ] Create public order status page (no login required)
 - [ ] Customer enters order number to view status
 - [ ] Show: pending → preparing → ready → completed
@@ -136,14 +135,14 @@
 - [ ] Push notification when order status changes
 - [ ] Backend: Ensure online orders are properly tracked
 
-### 12. Timesheet CSV Export
+### 11. Timesheet CSV Export
 - [ ] Add export button on Staff page
 - [ ] Export timesheet for selected date range
 - [ ] Include: staff name, date, clock-in, clock-out, hours, rate, total cost
 - [ ] Format suitable for payroll processing
 - [ ] Support filtering by staff member or role
 
-### 13. Daypart/Dynamic Pricing
+### 12. Daypart/Dynamic Pricing
 - [ ] Add daypart management (breakfast, lunch, dinner, happy hour, etc.)
 - [ ] Link dayparts to menu items
 - [ ] Set different prices per daypart
@@ -151,7 +150,7 @@
 - [ ] Show active daypart on POS
 - [ ] Backend: Add dayparts table and menu_item_dayparts table
 
-### 14. Void/Refund Reason Tracking
+### 13. Void/Refund Reason Tracking
 - [ ] Add void_reasons enum: customer_request, mistake, damage, comp, other
 - [ ] Track reason for each void/refund
 - [ ] Report on void reasons (identify patterns)
@@ -161,28 +160,28 @@
 
 ## LOWER PRIORITY - Advanced Features
 
-### 15. SMS Notifications
+### 14. SMS Notifications
 - [ ] Integrate Twilio or similar SMS service
 - [ ] Send SMS for: reservation confirmations, waitlist ready, order ready
 - [ ] Allow customers to opt-in/out
 - [ ] Track SMS delivery status
 - [ ] Backend: Add SMS service integration
 
-### 16. Email Campaigns
+### 15. Email Campaigns
 - [ ] Build email template builder
 - [ ] Send campaigns to customer segments
 - [ ] Track opens, clicks, conversions
 - [ ] Schedule campaigns for future send
 - [ ] Backend: Integrate with email service (SendGrid, Mailgun, etc.)
 
-### 17. Inventory Waste Tracking
+### 16. Inventory Waste Tracking
 - [ ] Add waste log page
 - [ ] Track: ingredient, quantity, reason (spoilage, damage, theft, etc.)
 - [ ] Calculate waste cost impact
 - [ ] Report on waste trends
 - [ ] Backend: Add waste_logs table
 
-### 18. Multi-Location Support
+### 17. Multi-Location Support
 - [ ] Add locations table to schema
 - [ ] Modify all tables to support location_id
 - [ ] Create location management page
@@ -191,14 +190,14 @@
 - [ ] Support location-specific staff management
 - [ ] Backend: Major refactor to add location filtering
 
-### 19. Combo/Bundle Management
+### 18. Combo/Bundle Management
 - [ ] Create combo builder UI
 - [ ] Link multiple items to create bundles
 - [ ] Set combo price (with discount vs individual items)
 - [ ] Show combos on POS menu
 - [ ] Backend: Add combos table and combo_items table
 
-### 20. Advanced Labour Management
+### 19. Advanced Labour Management
 - [ ] Overtime tracking and alerts
 - [ ] Compliance rules (max hours, break requirements)
 - [ ] Staff availability calendar
@@ -206,7 +205,7 @@
 - [ ] Labour budget vs actual tracking
 - [ ] Backend: Extend shifts table with overtime fields
 
-### 21. Payment Integration (Stripe/Square)
+### 20. Payment Integration (Stripe/Square)
 - [ ] Integrate Stripe or Square for online payments
 - [ ] Support card payments in online ordering
 - [ ] Support card payments in POS (if hardware available)
@@ -214,7 +213,7 @@
 - [ ] Handle refunds through payment gateway
 - [ ] Backend: Add payment_transactions table
 
-### 22. Real-Time Notifications System
+### 21. Real-Time Notifications System
 - [ ] Build notification center/bell icon
 - [ ] Implement WebSocket or polling for real-time updates
 - [ ] Notify on: new orders, low stock, staff alerts, system events
@@ -222,14 +221,14 @@
 - [ ] Notification preferences per user
 - [ ] Backend: Add notifications table and service
 
-### 23. Recipe Costing Analysis
+### 22. Recipe Costing Analysis
 - [ ] Show ingredient cost breakdown per recipe
 - [ ] Identify cost changes when ingredient prices update
 - [ ] Compare recipe cost vs menu item price
 - [ ] Suggest price adjustments based on cost changes
 - [ ] Track recipe cost history
 
-### 24. Supplier Performance Tracking
+### 23. Supplier Performance Tracking
 - [ ] Track on-time delivery rate per supplier
 - [ ] Monitor price trends per supplier
 - [ ] Quality ratings and notes
@@ -260,8 +259,8 @@
 
 ## Summary
 
-**Total Items:** 24 major features + sub-tasks
-**High Priority (6 features):** Z-reports, void/refund UI, QR generation, floor plan, customer history, plate cost calculation
+**Total Items:** 23 major features + sub-tasks (Floor Plan completed)
+**High Priority (5 features):** Z-reports, void/refund UI, QR generation, customer history, plate cost calculation
 **Medium Priority (8 features):** Waitlist, profitability, segmentation, order history, status tracking, CSV export, dayparts, reason tracking
 **Lower Priority (10 features):** SMS, email, waste tracking, multi-location, combos, labour, payments, notifications, recipe analysis, supplier tracking
 
@@ -269,27 +268,24 @@
 1. Z-reports (quick win, high value)
 2. Void/refund UI (high value, medium effort)
 3. QR code generation (quick win)
-4. Floor plan (medium effort, high value)
-5. Customer order history (quick win)
-6. Plate cost calculation (quick win)
-7. Waitlist (medium effort)
-8. Profitability dashboard (medium effort)
-9. Order history page (medium effort)
-10. Timesheet export (quick win)
+4. Customer order history (quick win)
+5. Plate cost calculation (quick win)
+6. Waitlist (medium effort)
+7. Profitability dashboard (medium effort)
+8. Order history page (medium effort)
+9. Timesheet export (quick win)
 
 
-## Floor Plan Visualization (Completed)
-- [x] Add sections table to schema for managing multiple areas
-- [x] Update tables schema to link to sections and store positionX/Y
-- [x] Create DB helpers for floor plan CRUD operations
-- [x] Build tRPC routers for sections and table positioning
-- [x] Create Floor Plan page with canvas-based editor
-- [x] Implement drag-and-drop table positioning
-- [x] Add visual status indicators (free=green, occupied=red, reserved=yellow, cleaning=gray)
-- [x] Implement real-time status updates via polling
-- [x] Add click-to-view table details modal
-- [x] Add table details with active orders display
-- [x] Support multiple sections/areas with tabs
-- [x] Add section management (create, rename, delete)
-- [x] Save floor plan layout to database
-- [x] Write tests for floor plan procedures
+
+## Z-Reports Feature (Completed)
+- [x] Add z_reports table to schema for storing daily summaries
+- [x] Add z_report_items table for detailed breakdown by category/payment method
+- [x] Create DB helpers for Z-report generation and retrieval
+- [x] Build tRPC routers for Z-report endpoints
+- [x] Create Z-Reports page with date picker and report list
+- [x] Implement daily summary display (revenue, orders, discounts, voids)
+- [x] Add payment breakdown (cash, card, split, etc.)
+- [x] Add shift-by-shift summary view
+- [x] Implement TXT export functionality
+- [x] Add Z-report history with filtering and search
+- [x] Write tests for Z-report procedures (10 tests, all passing)

@@ -10,6 +10,7 @@ import {
   suppliers, purchaseOrders, purchaseOrderItems,
   customers, reservations,
   vendorProducts, vendorProductMappings, priceUploads, priceUploadItems, priceHistory,
+  zReports, zReportItems, zReportShifts,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -808,4 +809,146 @@ export async function getTableWithOrders(id: number) {
   if (!tableData.length) return null;
   const activeOrders = await db.select().from(orders).where(and(eq(orders.tableId, id), ne(orders.status, "completed"), ne(orders.status, "cancelled")));
   return { ...tableData[0], activeOrders };
+}
+
+
+// ─── Z-Reports ───────────────────────────────────────────────────────
+export async function generateZReport(date: string, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Parse date
+  const startOfDay = new Date(`${date}T00:00:00Z`);
+  const endOfDay = new Date(`${date}T23:59:59Z`);
+
+  // Get all orders for the day (excluding cancelled)
+  const dayOrders = await db
+    .select()
+    .from(orders)
+    .where(
+      and(
+        gte(orders.createdAt, startOfDay),
+        lte(orders.createdAt, endOfDay),
+        ne(orders.status, "cancelled")
+      )
+    );
+
+  // Calculate totals
+  let totalRevenue = 0;
+  let totalDiscounts = 0;
+  let totalVoids = 0;
+  let totalTips = 0;
+  let cashTotal = 0;
+  let cardTotal = 0;
+  let splitTotal = 0;
+
+  for (const order of dayOrders) {
+    totalRevenue += parseFloat(order.total?.toString() || "0");
+    totalDiscounts += parseFloat((order as any).discount?.toString() || "0");
+    totalTips += parseFloat((order as any).tip?.toString() || "0");
+
+    if (order.paymentMethod === "cash") cashTotal += parseFloat(order.total?.toString() || "0");
+    if (order.paymentMethod === "card") cardTotal += parseFloat(order.total?.toString() || "0");
+    if (order.paymentMethod === "split") splitTotal += parseFloat(order.total?.toString() || "0");
+  }
+
+  // Create Z-report
+  const result = await db.insert(zReports).values({
+    reportDate: date,
+    totalRevenue: totalRevenue.toString(),
+    totalOrders: dayOrders.length,
+    totalDiscounts: totalDiscounts.toString(),
+    totalVoids: totalVoids.toString(),
+    totalTips: totalTips.toString(),
+    cashTotal: cashTotal.toString(),
+    cardTotal: cardTotal.toString(),
+    splitTotal: splitTotal.toString(),
+    generatedBy: userId,
+  });
+
+  const reportId = result[0].insertId;
+
+  // Create category breakdown
+  const categoryBreakdown = new Map<number, { name: string; count: number; revenue: number }>();
+
+  for (const order of dayOrders) {
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+    for (const item of items) {
+      const menuItem = await db.select().from(menuItems).where(eq(menuItems.id, item.menuItemId)).limit(1);
+      if (menuItem.length > 0) {
+        const catId = menuItem[0].categoryId || 0;
+        const catName = menuItem[0].categoryId
+          ? (await db.select().from(menuCategories).where(eq(menuCategories.id, menuItem[0].categoryId)).limit(1))[0]?.name || "Uncategorized"
+          : "Uncategorized";
+
+        if (!categoryBreakdown.has(catId)) {
+          categoryBreakdown.set(catId, { name: catName, count: 0, revenue: 0 });
+        }
+        const cat = categoryBreakdown.get(catId)!;
+        cat.count += 1;
+        cat.revenue += parseFloat(item.totalPrice?.toString() || "0");
+      }
+    }
+  }
+
+  // Insert category items
+  const categoryArray = Array.from(categoryBreakdown.entries());
+  for (const [catId, catData] of categoryArray) {
+    await db.insert(zReportItems).values({
+      reportId: reportId as number,
+      categoryId: catId || null,
+      categoryName: catData.name,
+      itemCount: catData.count,
+      itemRevenue: catData.revenue.toString(),
+    });
+  }
+
+  return reportId;
+}
+
+export async function getZReportByDate(date: string) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db.select().from(zReports).where(eq(zReports.reportDate, date)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getZReportsByDateRange(startDate: string, endDate: string) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(zReports)
+    .where(and(gte(zReports.reportDate, startDate), lte(zReports.reportDate, endDate)))
+    .orderBy(desc(zReports.reportDate));
+}
+
+export async function getZReportDetails(reportId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const report = await db.select().from(zReports).where(eq(zReports.id, reportId)).limit(1);
+  if (report.length === 0) return null;
+
+  const items = await db.select().from(zReportItems).where(eq(zReportItems.reportId, reportId));
+  const shifts = await db.select().from(zReportShifts).where(eq(zReportShifts.reportId, reportId));
+
+  return {
+    ...report[0],
+    items,
+    shifts,
+  };
+}
+
+export async function deleteZReport(reportId: number) {
+  const db = await getDb();
+  if (!db) return false;
+
+  await db.delete(zReportItems).where(eq(zReportItems.reportId, reportId));
+  await db.delete(zReportShifts).where(eq(zReportShifts.reportId, reportId));
+  await db.delete(zReports).where(eq(zReports.id, reportId));
+
+  return true;
 }

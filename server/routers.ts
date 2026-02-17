@@ -561,6 +561,19 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
     getTableDetails: protectedProcedure.input(z.object({ id: z.number() }))
       .query(({ input }) => db.getTableWithOrders(input.id)),
   }),
+
+  zReports: router({
+    generate: adminProcedure.input(z.object({ date: z.string() }))
+      .mutation(({ input, ctx }) => db.generateZReport(input.date, ctx.user.id)),
+    getByDate: protectedProcedure.input(z.object({ date: z.string() }))
+      .query(({ input }) => db.getZReportByDate(input.date)),
+    getByDateRange: protectedProcedure.input(z.object({ startDate: z.string(), endDate: z.string() }))
+      .query(({ input }) => db.getZReportsByDateRange(input.startDate, input.endDate)),
+    getDetails: protectedProcedure.input(z.object({ reportId: z.number() }))
+      .query(({ input }) => db.getZReportDetails(input.reportId)),
+    delete: adminProcedure.input(z.object({ reportId: z.number() }))
+      .mutation(({ input }) => db.deleteZReport(input.reportId)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
