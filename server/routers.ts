@@ -595,6 +595,19 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
       notes: z.string().optional(),
     })).mutation(({ input, ctx }) => db.rejectVoid(input.orderId, ctx.user.id, input.notes || "")),
   }),
+
+  qrCodes: router({
+    getAll: protectedProcedure.query(() => db.getAllQRCodes()),
+    getByTableId: protectedProcedure.input(z.object({ tableId: z.number() })).query(({ input }) => db.getQRCodeByTableId(input.tableId)),
+    createOrUpdate: adminProcedure.input(z.object({
+      tableId: z.number(),
+      qrUrl: z.string(),
+      qrSize: z.number().default(200),
+      format: z.string().default("png"),
+    })).mutation(({ input }) => db.createOrUpdateQRCode(input.tableId, input.qrUrl, input.qrSize, input.format)),
+    delete: adminProcedure.input(z.object({ tableId: z.number() })).mutation(({ input }) => db.deleteQRCode(input.tableId)),
+    generateForAllTables: adminProcedure.query(() => db.generateQRCodeForAllTables()),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

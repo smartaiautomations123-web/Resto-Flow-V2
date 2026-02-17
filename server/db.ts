@@ -12,6 +12,7 @@ import {
   vendorProducts, vendorProductMappings, priceUploads, priceUploadItems, priceHistory,
   zReports, zReportItems, zReportShifts,
   voidAuditLog, InsertVoidAuditLog,
+  qrCodes, InsertQRCode,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1082,4 +1083,100 @@ export async function rejectVoid(orderId: number, rejectorStaffId: number, notes
     notes,
     createdAt: new Date(),
   });
+}
+
+
+// ─── QR Code Management ────────────────────────────────────────────────
+export async function getAllQRCodes() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db
+    .select({
+      id: qrCodes.id,
+      tableId: qrCodes.tableId,
+      tableName: tables.name,
+      qrUrl: qrCodes.qrUrl,
+      qrSize: qrCodes.qrSize,
+      format: qrCodes.format,
+      createdAt: qrCodes.createdAt,
+      updatedAt: qrCodes.updatedAt,
+    })
+    .from(qrCodes)
+    .leftJoin(tables, eq(qrCodes.tableId, tables.id))
+    .orderBy(tables.name);
+}
+
+export async function getQRCodeByTableId(tableId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db
+    .select()
+    .from(qrCodes)
+    .where(eq(qrCodes.tableId, tableId))
+    .limit(1);
+  
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function createOrUpdateQRCode(tableId: number, qrUrl: string, qrSize: number = 200, format: string = "png") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const existing = await getQRCodeByTableId(tableId);
+  
+  if (existing) {
+    await db
+      .update(qrCodes)
+      .set({
+        qrUrl,
+        qrSize,
+        format,
+        updatedAt: new Date(),
+      })
+      .where(eq(qrCodes.tableId, tableId));
+    
+    return { ...existing, qrUrl, qrSize, format, updatedAt: new Date() };
+  } else {
+    const result = await db.insert(qrCodes).values({
+      tableId,
+      qrUrl,
+      qrSize,
+      format,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    
+    return {
+      id: result[0],
+      tableId,
+      qrUrl,
+      qrSize,
+      format,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+}
+
+export async function deleteQRCode(tableId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.delete(qrCodes).where(eq(qrCodes.tableId, tableId));
+  return true;
+}
+
+export async function generateQRCodeForAllTables() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const allTables = await db.select().from(tables);
+  
+  return allTables.map(table => ({
+    tableId: table.id,
+    tableName: table.name,
+    url: `/table/${table.id}`,
+  }));
 }

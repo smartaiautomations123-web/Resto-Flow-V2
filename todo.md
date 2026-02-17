@@ -64,13 +64,13 @@
 - [x] Add audit trail for all voids/refunds
 - [x] Backend: Add void/refund reason enum to orders table
 
-### 3. QR Code Generation for Managers
-- [ ] Create QR code generation UI in Settings or Reservations page
-- [ ] Generate QR codes for each table linking to `/table/:tableId`
-- [ ] Display QR codes in a print-friendly format (8x8 grid for all tables)
-- [ ] Allow customization of QR code size and format
-- [ ] Store QR code URLs in database for easy reprint
-- [ ] Add QR code library (qrcode.react or similar)
+### 3. QR Code Generation for Managers (Completed)
+- [x] Create QR code generation UI in Settings or Reservations page
+- [x] Generate QR codes for each table linking to `/table/:tableId`
+- [x] Display QR codes in a print-friendly format (8x8 grid for all tables)
+- [x] Allow customization of QR code size and format
+- [x] Store QR code URLs in database for easy reprint
+- [x] Add QR code library (qr-code-styling)
 
 ### 4. Customer Order History Detail View
 - [ ] Create customer detail page showing full profile

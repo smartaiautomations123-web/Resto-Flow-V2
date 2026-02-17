@@ -398,6 +398,20 @@ export type InsertStaff = typeof staff.$inferInsert;
 export type MenuCategory = typeof menuCategories.$inferSelect;
 export type MenuItem = typeof menuItems.$inferSelect;
 export type MenuModifier = typeof menuModifiers.$inferSelect;
+// ─── QR Codes ───────────────────────────────────────────────────────────
+export const qrCodes = mysqlTable("qr_codes", {
+  id: int("id").autoincrement().primaryKey(),
+  tableId: int("tableId").notNull().unique(),
+  qrUrl: text("qrUrl").notNull(),
+  qrSize: int("qrSize").default(200).notNull(),
+  format: varchar("format", { length: 20 }).default("png").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type QRCode = typeof qrCodes.$inferSelect;
+export type InsertQRCode = typeof qrCodes.$inferInsert;
+
 export type Table = typeof tables.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;

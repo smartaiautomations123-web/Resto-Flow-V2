@@ -21,6 +21,7 @@ import PriceUploads from "./pages/PriceUploads";
 import FloorPlan from "./pages/FloorPlan";
 import ZReports from "./pages/ZReports";
 import VoidRefunds from "./pages/VoidRefunds";
+import QRCodeGenerator from "./pages/QRCodeGenerator";
 
 function Router() {
   return (
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/floor-plan" component={() => <DashboardLayout><FloorPlan /></DashboardLayout>} />
       <Route path="/z-reports" component={() => <DashboardLayout><ZReports /></DashboardLayout>} />
       <Route path="/void-refunds" component={() => <DashboardLayout><VoidRefunds /></DashboardLayout>} />
+      <Route path="/qr-codes" component={() => <DashboardLayout><QRCodeGenerator /></DashboardLayout>} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
