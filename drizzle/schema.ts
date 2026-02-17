@@ -100,6 +100,20 @@ export const itemModifiers = mysqlTable("item_modifiers", {
   modifierId: int("modifierId").notNull(),
 });
 
+// ─── Floor Plan Sections ─────────────────────────────────────────────
+export const sections = mysqlTable("sections", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  sortOrder: int("sortOrder").default(0),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Section = typeof sections.$inferSelect;
+export type InsertSection = typeof sections.$inferInsert;
+
 // ─── Tables / Floor Plan ─────────────────────────────────────────────
 export const tables = mysqlTable("tables", {
   id: int("id").autoincrement().primaryKey(),

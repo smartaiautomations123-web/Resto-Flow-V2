@@ -18,6 +18,7 @@ import Reservations from "./pages/Reservations";
 import OnlineOrdering from "./pages/OnlineOrdering";
 import TableOrdering from "./pages/TableOrdering";
 import PriceUploads from "./pages/PriceUploads";
+import FloorPlan from "./pages/FloorPlan";
 
 function Router() {
   return (
@@ -37,6 +38,7 @@ function Router() {
       <Route path="/customers" component={() => <DashboardLayout><Customers /></DashboardLayout>} />
       <Route path="/reservations" component={() => <DashboardLayout><Reservations /></DashboardLayout>} />
       <Route path="/price-uploads" component={() => <DashboardLayout><PriceUploads /></DashboardLayout>} />
+      <Route path="/floor-plan" component={() => <DashboardLayout><FloorPlan /></DashboardLayout>} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

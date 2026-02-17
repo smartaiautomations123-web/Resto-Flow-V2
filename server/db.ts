@@ -5,7 +5,7 @@ import {
   InsertUser, users,
   staff, timeClock, shifts,
   menuCategories, menuItems, menuModifiers, itemModifiers,
-  tables, orders, orderItems,
+  sections, tables, orders, orderItems,
   ingredients, recipes,
   suppliers, purchaseOrders, purchaseOrderItems,
   customers, reservations,
@@ -750,4 +750,62 @@ export async function applyPriceUpload(uploadId: number) {
   });
   
   return { totalItems: items.length, newItems, priceChanges };
+}
+
+
+// ─── Floor Plan - Sections ───────────────────────────────────────────
+export async function getSections() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(sections).where(eq(sections.isActive, true)).orderBy(asc(sections.sortOrder));
+}
+
+export async function createSection(data: { name: string; description?: string; sortOrder?: number }) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(sections).values(data);
+  return { id: Number(result[0].insertId), ...data };
+}
+
+export async function updateSection(id: number, data: Partial<{ name: string; description: string; sortOrder: number; isActive: boolean }>) {
+  const db = await getDb();
+  if (!db) return null;
+  await db.update(sections).set(data).where(eq(sections.id, id));
+}
+
+export async function deleteSection(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  await db.update(sections).set({ isActive: false }).where(eq(sections.id, id));
+}
+
+// ─── Floor Plan - Tables ─────────────────────────────────────────────
+export async function getTablesBySection(sectionName?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  if (sectionName) {
+    return db.select().from(tables).where(eq(tables.section, sectionName)).orderBy(asc(tables.name));
+  }
+  return db.select().from(tables).orderBy(asc(tables.section), asc(tables.name));
+}
+
+export async function updateTablePosition(id: number, data: { positionX: number; positionY: number; section?: string }) {
+  const db = await getDb();
+  if (!db) return null;
+  await db.update(tables).set(data).where(eq(tables.id, id));
+}
+
+export async function updateTableStatus(id: number, status: "free" | "occupied" | "reserved" | "cleaning") {
+  const db = await getDb();
+  if (!db) return null;
+  await db.update(tables).set({ status }).where(eq(tables.id, id));
+}
+
+export async function getTableWithOrders(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const tableData = await db.select().from(tables).where(eq(tables.id, id)).limit(1);
+  if (!tableData.length) return null;
+  const activeOrders = await db.select().from(orders).where(and(eq(orders.tableId, id), ne(orders.status, "completed"), ne(orders.status, "cancelled")));
+  return { ...tableData[0], activeOrders };
 }

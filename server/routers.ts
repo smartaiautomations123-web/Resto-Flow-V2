@@ -540,6 +540,27 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
     list: protectedProcedure.input(z.object({ vendorProductId: z.number(), limit: z.number().optional() }))
       .query(({ input }) => db.listPriceHistory(input.vendorProductId, input.limit)),
   }),
+
+  sections: router({
+    list: protectedProcedure.query(() => db.getSections()),
+    create: protectedProcedure.input(z.object({ name: z.string(), description: z.string().optional(), sortOrder: z.number().optional() }))
+      .mutation(({ input }) => db.createSection(input)),
+    update: protectedProcedure.input(z.object({ id: z.number(), name: z.string().optional(), description: z.string().optional(), sortOrder: z.number().optional(), isActive: z.boolean().optional() }))
+      .mutation(({ input }) => { const { id, ...data } = input; return db.updateSection(id, data); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() }))
+      .mutation(({ input }) => db.deleteSection(input.id)),
+  }),
+
+  floorPlan: router({
+    tablesBySection: protectedProcedure.input(z.object({ section: z.string().optional() }))
+      .query(({ input }) => db.getTablesBySection(input.section)),
+    updateTablePosition: protectedProcedure.input(z.object({ id: z.number(), positionX: z.number(), positionY: z.number(), section: z.string().optional() }))
+      .mutation(({ input }) => { const { id, ...data } = input; return db.updateTablePosition(id, data); }),
+    updateTableStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.enum(["free", "occupied", "reserved", "cleaning"]) }))
+      .mutation(({ input }) => db.updateTableStatus(input.id, input.status)),
+    getTableDetails: protectedProcedure.input(z.object({ id: z.number() }))
+      .query(({ input }) => db.getTableWithOrders(input.id)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
