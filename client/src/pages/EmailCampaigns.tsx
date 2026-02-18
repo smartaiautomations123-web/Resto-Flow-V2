@@ -4,14 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Mail, Plus } from "lucide-react";
 
 export function EmailCampaigns() {
   const { data: campaigns } = trpc.emailCampaigns.getCampaigns.useQuery();
   const { data: templates } = trpc.emailCampaigns.getTemplates.useQuery();
   const createCampaign = trpc.emailCampaigns.createCampaign.useMutation();
-  const { toast } = useToast();
+  
 
   const [showDialog, setShowDialog] = useState(false);
   const [form, setForm] = useState({ name: "", templateId: 0, segmentId: 0 });

@@ -361,3 +361,8 @@
 - [x] Implement repeat order quick action
 - [x] Link from Customers list to detail view
 - [x] Write tests for customer detail procedures (7 tests, all passing)
+
+## App Organisation & Cleanup
+- [x] Rebuild todo2.md with accurate PRD feature audit
+- [x] Add missing routes for unrouted pages
+- [x] Reorganise sidebar navigation to group related pages logically

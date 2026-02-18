@@ -25,6 +25,8 @@ import {
   LayoutDashboard, ShoppingCart, ChefHat, UtensilsCrossed,
   Package, Users, BarChart3, Truck, Heart, CalendarDays,
   LogOut, PanelLeft, Flame, Upload, Grid3x3, Receipt, AlertCircle, QrCode, Clock, TrendingUp, Zap,
+  History, CreditCard, Layers, FlaskConical, Trash2, ClipboardList,
+  Briefcase, Mail, MessageSquare, Bell, MapPin,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -32,26 +34,54 @@ import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
 const menuItems = [
+  // ─── Dashboard ───
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+
+  // ─── POS & Orders ───
   { icon: ShoppingCart, label: "POS", path: "/pos" },
   { icon: ChefHat, label: "Kitchen (KDS)", path: "/kds" },
-  { icon: UtensilsCrossed, label: "Menu", path: "/menu" },
-  { icon: Package, label: "Inventory", path: "/inventory" },
-  { icon: Users, label: "Staff", path: "/staff" },
-  { icon: BarChart3, label: "Reports", path: "/reports" },
-  { icon: Truck, label: "Suppliers", path: "/suppliers" },
-  { icon: Heart, label: "Customers", path: "/customers" },
-  { icon: CalendarDays, label: "Reservations", path: "/reservations" },
-  { icon: Grid3x3, label: "Floor Plan", path: "/floor-plan" },
-  { icon: Upload, label: "Price Uploads", path: "/price-uploads" },
-  { icon: Receipt, label: "Z-Reports", path: "/z-reports" },
+  { icon: History, label: "Order History", path: "/order-history" },
   { icon: AlertCircle, label: "Void & Refunds", path: "/void-refunds" },
-  { icon: QrCode, label: "QR Codes", path: "/qr-codes" },
-  { icon: Clock, label: "Waitlist", path: "/waitlist" },
-  { icon: TrendingUp, label: "Profitability", path: "/profitability" },
-          { icon: Clock, label: "Dayparts", path: "/dayparts" },
-          { icon: AlertCircle, label: "Void Reasons", path: "/void-reasons" },
+  { icon: ClipboardList, label: "Void Reasons", path: "/void-reasons" },
+  { icon: CreditCard, label: "Payments", path: "/payments" },
+
+  // ─── Menu & Recipes ───
+  { icon: UtensilsCrossed, label: "Menu", path: "/menu" },
+  { icon: Layers, label: "Combos", path: "/combos" },
+  { icon: Clock, label: "Dayparts", path: "/dayparts" },
+  { icon: FlaskConical, label: "Recipe Analysis", path: "/recipe-analysis" },
+
+  // ─── Inventory & Suppliers ───
+  { icon: Package, label: "Inventory", path: "/inventory" },
+  { icon: Trash2, label: "Waste Tracking", path: "/waste-tracking" },
+  { icon: Truck, label: "Suppliers", path: "/suppliers" },
+  { icon: BarChart3, label: "Supplier Tracking", path: "/supplier-tracking" },
+  { icon: Upload, label: "Price Uploads", path: "/price-uploads" },
+
+  // ─── Staff & Labour ───
+  { icon: Users, label: "Staff", path: "/staff" },
+  { icon: Briefcase, label: "Labour", path: "/labour" },
+
+  // ─── Customers & CRM ───
+  { icon: Heart, label: "Customers", path: "/customers" },
   { icon: Zap, label: "Segments", path: "/segments" },
+  { icon: MessageSquare, label: "SMS Settings", path: "/sms-settings" },
+  { icon: Mail, label: "Email Campaigns", path: "/email-campaigns" },
+
+  // ─── Reservations & Floor ───
+  { icon: CalendarDays, label: "Reservations", path: "/reservations" },
+  { icon: Clock, label: "Waitlist", path: "/waitlist" },
+  { icon: Grid3x3, label: "Floor Plan", path: "/floor-plan" },
+  { icon: QrCode, label: "QR Codes", path: "/qr-codes" },
+
+  // ─── Reports & Analytics ───
+  { icon: BarChart3, label: "Reports", path: "/reports" },
+  { icon: TrendingUp, label: "Profitability", path: "/profitability" },
+  { icon: Receipt, label: "Z-Reports", path: "/z-reports" },
+
+  // ─── Settings & Admin ───
+  { icon: Bell, label: "Notifications", path: "/notifications" },
+  { icon: MapPin, label: "Locations", path: "/locations" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

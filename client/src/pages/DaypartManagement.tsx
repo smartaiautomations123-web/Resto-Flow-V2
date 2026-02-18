@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Clock } from "lucide-react";
 
 export function DaypartManagement() {
@@ -14,7 +14,7 @@ export function DaypartManagement() {
   const createDaypart = trpc.dayparts.create.useMutation();
   const updateDaypart = trpc.dayparts.update.useMutation();
   const { data: currentDaypart } = trpc.dayparts.getCurrent.useQuery();
-  const { toast } = useToast();
+  
 
   const [showDialog, setShowDialog] = useState(false);
   const [form, setForm] = useState({ name: "", startTime: "09:00", endTime: "11:00" });

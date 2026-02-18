@@ -6,59 +6,102 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import DashboardLayout from "./components/DashboardLayout";
-import { DaypartManagement } from "@/pages/DaypartManagement";
-import { VoidReasonAnalytics } from "@/pages/VoidReasonAnalytics";
-import { SmsSettings } from "@/pages/SmsSettings";
-import { EmailCampaigns } from "@/pages/EmailCampaigns";
-import { WasteTracking } from "@/pages/WasteTracking";
+
+// Pages
 import Dashboard from "./pages/Dashboard";
 import POS from "./pages/POS";
 import KDS from "./pages/KDS";
 import MenuManagement from "./pages/MenuManagement";
+import ComboBuilder from "./pages/ComboBuilder";
+import { DaypartManagement } from "@/pages/DaypartManagement";
 import Inventory from "./pages/Inventory";
+import { WasteTracking } from "@/pages/WasteTracking";
+import RecipeAnalysis from "./pages/RecipeAnalysis";
 import StaffManagement from "./pages/StaffManagement";
+import LabourManagement from "./pages/LabourManagement";
 import Reports from "./pages/Reports";
+import Profitability from "./pages/Profitability";
+import ZReports from "./pages/ZReports";
 import Suppliers from "./pages/Suppliers";
+import SupplierTracking from "./pages/SupplierTracking";
+import PriceUploads from "./pages/PriceUploads";
 import Customers from "./pages/Customers";
+import CustomerDetail from "./pages/CustomerDetail";
+import CustomerSegments from "./pages/CustomerSegments";
 import Reservations from "./pages/Reservations";
+import Waitlist from "./pages/Waitlist";
 import OnlineOrdering from "./pages/OnlineOrdering";
 import TableOrdering from "./pages/TableOrdering";
-import PriceUploads from "./pages/PriceUploads";
 import FloorPlan from "./pages/FloorPlan";
-import ZReports from "./pages/ZReports";
 import VoidRefunds from "./pages/VoidRefunds";
+import { VoidReasonAnalytics } from "@/pages/VoidReasonAnalytics";
 import QRCodeGenerator from "./pages/QRCodeGenerator";
-import CustomerDetail from "./pages/CustomerDetail";
-import Waitlist from "./pages/Waitlist";
-import Profitability from "./pages/Profitability";
-import CustomerSegments from "./pages/CustomerSegments";
+import OrderHistory from "./pages/OrderHistory";
+import PaymentManagement from "./pages/PaymentManagement";
+import { SmsSettings } from "@/pages/SmsSettings";
+import { EmailCampaigns } from "@/pages/EmailCampaigns";
+import NotificationCenter from "./pages/NotificationCenter";
+import LocationManagement from "./pages/LocationManagement";
 
 function Router() {
   return (
     <Switch>
-      {/* Public routes */}
+      {/* Public routes (no dashboard layout) */}
       <Route path="/order" component={OnlineOrdering} />
       <Route path="/table/:tableId" component={TableOrdering} />
-      {/* Dashboard routes */}
+      <Route path="/order-status" component={OrderStatus} />
+
+      {/* ─── Dashboard ─────────────────────────────────────── */}
       <Route path="/" component={() => <DashboardLayout><Dashboard /></DashboardLayout>} />
+
+      {/* ─── POS & Orders ──────────────────────────────────── */}
       <Route path="/pos" component={() => <DashboardLayout><POS /></DashboardLayout>} />
       <Route path="/kds" component={() => <DashboardLayout><KDS /></DashboardLayout>} />
+      <Route path="/order-history" component={() => <DashboardLayout><OrderHistory /></DashboardLayout>} />
+      <Route path="/void-refunds" component={() => <DashboardLayout><VoidRefunds /></DashboardLayout>} />
+      <Route path="/void-reasons" component={() => <DashboardLayout><VoidReasonAnalytics /></DashboardLayout>} />
+      <Route path="/payments" component={() => <DashboardLayout><PaymentManagement /></DashboardLayout>} />
+
+      {/* ─── Menu & Recipes ────────────────────────────────── */}
       <Route path="/menu" component={() => <DashboardLayout><MenuManagement /></DashboardLayout>} />
+      <Route path="/combos" component={() => <DashboardLayout><ComboBuilder /></DashboardLayout>} />
+      <Route path="/dayparts" component={() => <DashboardLayout><DaypartManagement /></DashboardLayout>} />
+      <Route path="/recipe-analysis" component={() => <DashboardLayout><RecipeAnalysis /></DashboardLayout>} />
+
+      {/* ─── Inventory & Suppliers ─────────────────────────── */}
       <Route path="/inventory" component={() => <DashboardLayout><Inventory /></DashboardLayout>} />
-      <Route path="/staff" component={() => <DashboardLayout><StaffManagement /></DashboardLayout>} />
-      <Route path="/reports" component={() => <DashboardLayout><Reports /></DashboardLayout>} />
+      <Route path="/waste-tracking" component={() => <DashboardLayout><WasteTracking /></DashboardLayout>} />
       <Route path="/suppliers" component={() => <DashboardLayout><Suppliers /></DashboardLayout>} />
+      <Route path="/supplier-tracking" component={() => <DashboardLayout><SupplierTracking /></DashboardLayout>} />
+      <Route path="/price-uploads" component={() => <DashboardLayout><PriceUploads /></DashboardLayout>} />
+
+      {/* ─── Staff & Labour ────────────────────────────────── */}
+      <Route path="/staff" component={() => <DashboardLayout><StaffManagement /></DashboardLayout>} />
+      <Route path="/labour" component={() => <DashboardLayout><LabourManagement /></DashboardLayout>} />
+
+      {/* ─── Customers & CRM ───────────────────────────────── */}
       <Route path="/customers" component={() => <DashboardLayout><Customers /></DashboardLayout>} />
       <Route path="/customers/:customerId" component={() => <DashboardLayout><CustomerDetail /></DashboardLayout>} />
-      <Route path="/reservations" component={() => <DashboardLayout><Reservations /></DashboardLayout>} />
-      <Route path="/price-uploads" component={() => <DashboardLayout><PriceUploads /></DashboardLayout>} />
-      <Route path="/floor-plan" component={() => <DashboardLayout><FloorPlan /></DashboardLayout>} />
-      <Route path="/z-reports" component={() => <DashboardLayout><ZReports /></DashboardLayout>} />
-      <Route path="/void-refunds" component={() => <DashboardLayout><VoidRefunds /></DashboardLayout>} />
-      <Route path="/qr-codes" component={() => <DashboardLayout><QRCodeGenerator /></DashboardLayout>} />
-      <Route path="/waitlist" component={() => <DashboardLayout><Waitlist /></DashboardLayout>} />
-      <Route path="/profitability" component={() => <DashboardLayout><Profitability /></DashboardLayout>} />
       <Route path="/segments" component={() => <DashboardLayout><CustomerSegments /></DashboardLayout>} />
+      <Route path="/sms-settings" component={() => <DashboardLayout><SmsSettings /></DashboardLayout>} />
+      <Route path="/email-campaigns" component={() => <DashboardLayout><EmailCampaigns /></DashboardLayout>} />
+
+      {/* ─── Reservations & Floor ──────────────────────────── */}
+      <Route path="/reservations" component={() => <DashboardLayout><Reservations /></DashboardLayout>} />
+      <Route path="/waitlist" component={() => <DashboardLayout><Waitlist /></DashboardLayout>} />
+      <Route path="/floor-plan" component={() => <DashboardLayout><FloorPlan /></DashboardLayout>} />
+      <Route path="/qr-codes" component={() => <DashboardLayout><QRCodeGenerator /></DashboardLayout>} />
+
+      {/* ─── Reports & Analytics ───────────────────────────── */}
+      <Route path="/reports" component={() => <DashboardLayout><Reports /></DashboardLayout>} />
+      <Route path="/profitability" component={() => <DashboardLayout><Profitability /></DashboardLayout>} />
+      <Route path="/z-reports" component={() => <DashboardLayout><ZReports /></DashboardLayout>} />
+
+      {/* ─── Settings & Admin ──────────────────────────────── */}
+      <Route path="/notifications" component={() => <DashboardLayout><NotificationCenter /></DashboardLayout>} />
+      <Route path="/locations" component={() => <DashboardLayout><LocationManagement /></DashboardLayout>} />
+
+      {/* ─── Fallback ──────────────────────────────────────── */}
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

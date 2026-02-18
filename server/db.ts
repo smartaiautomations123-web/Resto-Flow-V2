@@ -15,6 +15,19 @@ import {
   voidAuditLog, InsertVoidAuditLog,
   qrCodes, InsertQRCode,
   customerSegments, segmentMembers, campaigns, campaignRecipients,
+  orderVoidReasons, orderItemVoidReasons,
+  dayparts, menuItemDayparts,
+  notifications, notificationPreferences,
+  labourBudget, labourCompliance,
+  timeOffRequests, staffAvailability, overtimeAlerts,
+  paymentTransactions,
+  supplierPriceHistory, supplierPerformance,
+  smsMessages, smsSettings, customerSmsPreferences,
+  emailCampaigns, emailCampaignRecipients, emailTemplates,
+  wasteLogs, wasteReports,
+  locations,
+  combos, comboItems,
+  recipeCostHistory,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -23,15 +36,17 @@ let _db: MySql2Database | null = null;
 export async function getDb() {
   if (_db) return _db;
 
+  const dbUrl = new URL(ENV.databaseUrl);
   const connection = await mysql.createPool({
-    host: ENV.DATABASE_URL.split("@")[1].split(":")[0],
-    port: parseInt(ENV.DATABASE_URL.split(":")[2].split("/")[0]),
-    database: ENV.DATABASE_URL.split("/").pop(),
-    user: ENV.DATABASE_URL.split("://")[1].split(":")[0],
-    password: ENV.DATABASE_URL.split(":")[2].split("@")[0],
+    host: dbUrl.hostname,
+    port: parseInt(dbUrl.port || '3306'),
+    database: dbUrl.pathname.slice(1),
+    user: decodeURIComponent(dbUrl.username),
+    password: decodeURIComponent(dbUrl.password),
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
+    ssl: { rejectUnauthorized: true },
   });
 
   _db = drizzle(connection);
@@ -42,13 +57,13 @@ export async function getDb() {
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(users).where(eq(users.openId, openId)).get();
+  return db.select().from(users).where(eq(users.openId, openId)).then(rows => rows[0]);
 }
 
 export async function createUser(openId: string, name?: string, email?: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(users).values({ openId, name, email }).returning();
+  return db.insert(users).values({ openId, name, email }).execute();
 }
 
 // ─── Staff ────────────────────────────────────────────────────────────
@@ -61,25 +76,25 @@ export async function listStaff() {
 export async function getStaffById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(staff).where(eq(staff.id, id)).get();
+  return db.select().from(staff).where(eq(staff.id, id)).then(rows => rows[0]);
 }
 
 export async function createStaff(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(staff).values(data).returning();
+  return db.insert(staff).values(data).execute();
 }
 
 export async function updateStaff(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(staff).set(data).where(eq(staff.id, id)).returning();
+  return db.update(staff).set(data).where(eq(staff.id, id)).execute();
 }
 
 export async function deleteStaff(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(staff).set({ isActive: false }).where(eq(staff.id, id)).returning();
+  return db.update(staff).set({ isActive: false }).where(eq(staff.id, id)).execute();
 }
 
 export async function getStaffOnDuty() {
@@ -98,27 +113,28 @@ export async function getShiftsEndingSoon() {
 export async function clockIn(staffId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(timeClock).values({ staffId, clockIn: new Date() }).returning();
+  return db.insert(timeClock).values({ staffId, clockIn: new Date() }).execute();
 }
 
 export async function clockOut(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(timeClock).set({ clockOut: new Date() }).where(eq(timeClock.id, id)).returning();
+  return db.update(timeClock).set({ clockOut: new Date() }).where(eq(timeClock.id, id)).execute();
 }
 
 export async function getActiveClockEntry(staffId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(timeClock).where(and(eq(timeClock.staffId, staffId), isNull(timeClock.clockOut))).get();
+  return db.select().from(timeClock).where(and(eq(timeClock.staffId, staffId), isNull(timeClock.clockOut))).then(rows => rows[0]);
 }
 
 export async function listTimeEntries(staffId?: number, dateFrom?: string, dateTo?: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  let query = db.select().from(timeClock);
-  if (staffId) query = query.where(eq(timeClock.staffId, staffId));
-  return query.orderBy(desc(timeClock.clockIn));
+  if (staffId) {
+    return db.select().from(timeClock).where(eq(timeClock.staffId, staffId)).orderBy(desc(timeClock.clockIn));
+  }
+  return db.select().from(timeClock).orderBy(desc(timeClock.clockIn));
 }
 
 // ─── Menu Categories ──────────────────────────────────────────────────
@@ -131,62 +147,62 @@ export async function listMenuCategories() {
 export async function getMenuCategoryById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(menuCategories).where(eq(menuCategories.id, id)).get();
+  return db.select().from(menuCategories).where(eq(menuCategories.id, id)).then(rows => rows[0]);
 }
 
 export async function createMenuCategory(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(menuCategories).values(data).returning();
+  return db.insert(menuCategories).values(data).execute();
 }
 
 export async function updateMenuCategory(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(menuCategories).set(data).where(eq(menuCategories.id, id)).returning();
+  return db.update(menuCategories).set(data).where(eq(menuCategories.id, id)).execute();
 }
 
 export async function deleteMenuCategory(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(menuCategories).set({ isActive: false }).where(eq(menuCategories.id, id)).returning();
+  return db.update(menuCategories).set({ isActive: false }).where(eq(menuCategories.id, id)).execute();
 }
 
 // ─── Menu Items ───────────────────────────────────────────────────────
 export async function listMenuItems() {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(menuItems).where(eq(menuItems.isActive, true)).orderBy(asc(menuItems.name));
+  return db.select().from(menuItems).where(eq(menuItems.isAvailable, true)).orderBy(asc(menuItems.name));
 }
 
 export async function getMenuItemById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(menuItems).where(eq(menuItems.id, id)).get();
+  return db.select().from(menuItems).where(eq(menuItems.id, id)).then(rows => rows[0]);
 }
 
 export async function getMenuItemsByCategory(categoryId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(menuItems).where(and(eq(menuItems.categoryId, categoryId), eq(menuItems.isActive, true))).orderBy(asc(menuItems.sortOrder));
+  return db.select().from(menuItems).where(and(eq(menuItems.categoryId, categoryId), eq(menuItems.isAvailable, true))).orderBy(asc(menuItems.sortOrder));
 }
 
 export async function createMenuItem(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(menuItems).values(data).returning();
+  return db.insert(menuItems).values(data).execute();
 }
 
 export async function updateMenuItem(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(menuItems).set(data).where(eq(menuItems.id, id)).returning();
+  return db.update(menuItems).set(data).where(eq(menuItems.id, id)).execute();
 }
 
 export async function deleteMenuItem(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(menuItems).set({ isActive: false }).where(eq(menuItems.id, id)).returning();
+  return db.update(menuItems).set({ isAvailable: false }).where(eq(menuItems.id, id)).execute();
 }
 
 // ─── Menu Modifiers ───────────────────────────────────────────────────
@@ -199,25 +215,25 @@ export async function listMenuModifiers() {
 export async function getMenuModifierById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(menuModifiers).where(eq(menuModifiers.id, id)).get();
+  return db.select().from(menuModifiers).where(eq(menuModifiers.id, id)).then(rows => rows[0]);
 }
 
 export async function createMenuModifier(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(menuModifiers).values(data).returning();
+  return db.insert(menuModifiers).values(data).execute();
 }
 
 export async function updateMenuModifier(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(menuModifiers).set(data).where(eq(menuModifiers.id, id)).returning();
+  return db.update(menuModifiers).set(data).where(eq(menuModifiers.id, id)).execute();
 }
 
 export async function deleteMenuModifier(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(menuModifiers).set({ isActive: false }).where(eq(menuModifiers.id, id)).returning();
+  return db.update(menuModifiers).set({ isActive: false }).where(eq(menuModifiers.id, id)).execute();
 }
 
 export async function getItemModifiers(itemId: number) {
@@ -229,7 +245,7 @@ export async function getItemModifiers(itemId: number) {
 export async function addModifierToItem(menuItemId: number, modifierId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(itemModifiers).values({ menuItemId, modifierId }).returning();
+  return db.insert(itemModifiers).values({ menuItemId, modifierId }).execute();
 }
 
 export async function removeModifierFromItem(menuItemId: number, modifierId: number) {
@@ -242,19 +258,19 @@ export async function removeModifierFromItem(menuItemId: number, modifierId: num
 export async function createOrder(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(orders).values(data).returning();
+  return db.insert(orders).values(data).execute();
 }
 
 export async function getOrderById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(orders).where(eq(orders.id, id)).get();
+  return db.select().from(orders).where(eq(orders.id, id)).then(rows => rows[0]);
 }
 
 export async function updateOrder(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(orders).set(data).where(eq(orders.id, id)).returning();
+  return db.update(orders).set(data).where(eq(orders.id, id)).execute();
 }
 
 export async function getOrdersByStatus(status: string) {
@@ -273,7 +289,7 @@ export async function getOrdersByTable(tableId: number) {
 export async function addOrderItem(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(orderItems).values(data).returning();
+  return db.insert(orderItems).values(data).execute();
 }
 
 export async function getOrderItems(orderId: number) {
@@ -285,7 +301,7 @@ export async function getOrderItems(orderId: number) {
 export async function updateOrderItem(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(orderItems).set(data).where(eq(orderItems.id, id)).returning();
+  return db.update(orderItems).set(data).where(eq(orderItems.id, id)).execute();
 }
 
 export async function deleteOrderItem(id: number) {
@@ -304,38 +320,38 @@ export async function listIngredients() {
 export async function getIngredientById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(ingredients).where(eq(ingredients.id, id)).get();
+  return db.select().from(ingredients).where(eq(ingredients.id, id)).then(rows => rows[0]);
 }
 
 export async function createIngredient(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(ingredients).values(data).returning();
+  return db.insert(ingredients).values(data).execute();
 }
 
 export async function updateIngredient(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(ingredients).set(data).where(eq(ingredients.id, id)).returning();
+  return db.update(ingredients).set(data).where(eq(ingredients.id, id)).execute();
 }
 
 export async function deleteIngredient(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(ingredients).set({ isActive: false }).where(eq(ingredients.id, id)).returning();
+  return db.update(ingredients).set({ isActive: false }).where(eq(ingredients.id, id)).execute();
 }
 
 // ─── Recipes ──────────────────────────────────────────────────────────
 export async function listRecipes() {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(recipes).where(eq(recipes.isActive, true)).orderBy(asc(recipes.name));
+  return db.select().from(recipes);
 }
 
 export async function getRecipeById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(recipes).where(eq(recipes.id, id)).get();
+  return db.select().from(recipes).where(eq(recipes.id, id)).then(rows => rows[0]);
 }
 
 export async function getRecipesByMenuItem(menuItemId: number) {
@@ -347,19 +363,19 @@ export async function getRecipesByMenuItem(menuItemId: number) {
 export async function createRecipe(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(recipes).values(data).returning();
+  return db.insert(recipes).values(data).execute();
 }
 
 export async function updateRecipe(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(recipes).set(data).where(eq(recipes.id, id)).returning();
+  return db.update(recipes).set(data).where(eq(recipes.id, id)).execute();
 }
 
 export async function deleteRecipe(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(recipes).set({ isActive: false }).where(eq(recipes.id, id)).returning();
+  return db.delete(recipes).where(eq(recipes.id, id)).execute();
 }
 
 // ─── Customers ────────────────────────────────────────────────────────
@@ -372,25 +388,25 @@ export async function listCustomers() {
 export async function getCustomerById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(customers).where(eq(customers.id, id)).get();
+  return db.select().from(customers).where(eq(customers.id, id)).then(rows => rows[0]);
 }
 
 export async function getCustomerByPhone(phone: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(customers).where(eq(customers.phone, phone)).get();
+  return db.select().from(customers).where(eq(customers.phone, phone)).then(rows => rows[0]);
 }
 
 export async function createCustomer(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(customers).values(data).returning();
+  return db.insert(customers).values(data).execute();
 }
 
 export async function updateCustomer(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(customers).set(data).where(eq(customers.id, id)).returning();
+  return db.update(customers).set(data).where(eq(customers.id, id)).execute();
 }
 
 export async function deleteCustomer(id: number) {
@@ -403,25 +419,25 @@ export async function deleteCustomer(id: number) {
 export async function listReservations() {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(reservations).orderBy(desc(reservations.reservationTime));
+  return db.select().from(reservations).orderBy(desc(reservations.time));
 }
 
 export async function getReservationById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(reservations).where(eq(reservations.id, id)).get();
+  return db.select().from(reservations).where(eq(reservations.id, id)).then(rows => rows[0]);
 }
 
 export async function createReservation(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(reservations).values(data).returning();
+  return db.insert(reservations).values(data).execute();
 }
 
 export async function updateReservation(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(reservations).set(data).where(eq(reservations.id, id)).returning();
+  return db.update(reservations).set(data).where(eq(reservations.id, id)).execute();
 }
 
 export async function deleteReservation(id: number) {
@@ -434,31 +450,31 @@ export async function deleteReservation(id: number) {
 export async function listTables() {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(tables).where(eq(tables.isActive, true)).orderBy(asc(tables.name));
+  return db.select().from(tables).orderBy(asc(tables.name));
 }
 
 export async function getTableById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(tables).where(eq(tables.id, id)).get();
+  return db.select().from(tables).where(eq(tables.id, id)).then(rows => rows[0]);
 }
 
 export async function createTable(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(tables).values(data).returning();
+  return db.insert(tables).values(data).execute();
 }
 
 export async function updateTable(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(tables).set(data).where(eq(tables.id, id)).returning();
+  return db.update(tables).set(data).where(eq(tables.id, id)).execute();
 }
 
 export async function deleteTable(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(tables).set({ isActive: false }).where(eq(tables.id, id)).returning();
+  return db.delete(tables).where(eq(tables.id, id)).execute();
 }
 
 // ─── Suppliers ────────────────────────────────────────────────────────
@@ -471,25 +487,25 @@ export async function listSuppliers() {
 export async function getSupplierById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(suppliers).where(eq(suppliers.id, id)).get();
+  return db.select().from(suppliers).where(eq(suppliers.id, id)).then(rows => rows[0]);
 }
 
 export async function createSupplier(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(suppliers).values(data).returning();
+  return db.insert(suppliers).values(data).execute();
 }
 
 export async function updateSupplier(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(suppliers).set(data).where(eq(suppliers.id, id)).returning();
+  return db.update(suppliers).set(data).where(eq(suppliers.id, id)).execute();
 }
 
 export async function deleteSupplier(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(suppliers).set({ isActive: false }).where(eq(suppliers.id, id)).returning();
+  return db.update(suppliers).set({ isActive: false }).where(eq(suppliers.id, id)).execute();
 }
 
 // ─── Purchase Orders ──────────────────────────────────────────────────
@@ -502,19 +518,19 @@ export async function listPurchaseOrders() {
 export async function getPurchaseOrderById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id)).get();
+  return db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id)).then(rows => rows[0]);
 }
 
 export async function createPurchaseOrder(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(purchaseOrders).values(data).returning();
+  return db.insert(purchaseOrders).values(data).execute();
 }
 
 export async function updatePurchaseOrder(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(purchaseOrders).set(data).where(eq(purchaseOrders.id, id)).returning();
+  return db.update(purchaseOrders).set(data).where(eq(purchaseOrders.id, id)).execute();
 }
 
 export async function getPurchaseOrderItems(poId: number) {
@@ -526,32 +542,32 @@ export async function getPurchaseOrderItems(poId: number) {
 export async function addPurchaseOrderItem(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(purchaseOrderItems).values(data).returning();
+  return db.insert(purchaseOrderItems).values(data).execute();
 }
 
 // ─── Vendor Products ──────────────────────────────────────────────────
 export async function listVendorProducts() {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(vendorProducts).orderBy(asc(vendorProducts.name));
+  return db.select().from(vendorProducts).orderBy(asc(vendorProducts.description));
 }
 
 export async function getVendorProductById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(vendorProducts).where(eq(vendorProducts.id, id)).get();
+  return db.select().from(vendorProducts).where(eq(vendorProducts.id, id)).then(rows => rows[0]);
 }
 
 export async function createVendorProduct(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(vendorProducts).values(data).returning();
+  return db.insert(vendorProducts).values(data).execute();
 }
 
 export async function updateVendorProduct(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(vendorProducts).set(data).where(eq(vendorProducts.id, id)).returning();
+  return db.update(vendorProducts).set(data).where(eq(vendorProducts.id, id)).execute();
 }
 
 export async function getVendorProductMappings(vendorProductId: number) {
@@ -563,7 +579,7 @@ export async function getVendorProductMappings(vendorProductId: number) {
 export async function createVendorProductMapping(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(vendorProductMappings).values(data).returning();
+  return db.insert(vendorProductMappings).values(data).execute();
 }
 
 // ─── Price Uploads ────────────────────────────────────────────────────
@@ -576,19 +592,19 @@ export async function listPriceUploads() {
 export async function getPriceUploadById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(priceUploads).where(eq(priceUploads.id, id)).get();
+  return db.select().from(priceUploads).where(eq(priceUploads.id, id)).then(rows => rows[0]);
 }
 
 export async function createPriceUpload(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(priceUploads).values(data).returning();
+  return db.insert(priceUploads).values(data).execute();
 }
 
 export async function updatePriceUpload(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(priceUploads).set(data).where(eq(priceUploads.id, id)).returning();
+  return db.update(priceUploads).set(data).where(eq(priceUploads.id, id)).execute();
 }
 
 export async function getPriceUploadItems(uploadId: number) {
@@ -600,13 +616,13 @@ export async function getPriceUploadItems(uploadId: number) {
 export async function addPriceUploadItem(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(priceUploadItems).values(data).returning();
+  return db.insert(priceUploadItems).values(data).execute();
 }
 
 export async function listPriceHistory(vendorProductId: number, limit?: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(priceHistory).where(eq(priceHistory.vendorProductId, vendorProductId)).orderBy(desc(priceHistory.createdAt)).limit(limit || 50);
+  return db.select().from(priceHistory).where(eq(priceHistory.vendorProductId, vendorProductId)).orderBy(desc(priceHistory.recordedAt)).limit(limit || 50);
 }
 
 export async function applyPriceUpload(uploadId: number) {
@@ -614,9 +630,9 @@ export async function applyPriceUpload(uploadId: number) {
   if (!db) throw new Error("Database not available");
   const items = await db.select().from(priceUploadItems).where(eq(priceUploadItems.uploadId, uploadId));
   for (const item of items) {
-    await db.insert(priceHistory).values({ vendorProductId: item.vendorProductId, price: item.price });
+    await db.insert(priceHistory).values({ vendorProductId: item.vendorProductId || 0, unitPrice: item.unitPrice, casePrice: item.casePrice });
   }
-  return db.update(priceUploads).set({ status: "applied" }).where(eq(priceUploads.id, uploadId)).returning();
+  return db.update(priceUploads).set({ status: "applied" }).where(eq(priceUploads.id, uploadId)).execute();
 }
 
 // ─── Z-Reports ────────────────────────────────────────────────────────
@@ -633,26 +649,26 @@ export async function generateZReport(date: string, staffId: number) {
   const totalOrders = dayOrders.length;
 
   return db.insert(zReports).values({
-    date,
+    reportDate: date,
     totalRevenue: totalRevenue.toString(),
     totalOrders,
-    createdBy: staffId,
-  }).returning();
+    generatedBy: staffId,
+  }).execute();
 }
 
 export async function getZReportByDate(date: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(zReports).where(eq(zReports.date, date)).get();
+  return db.select().from(zReports).where(eq(zReports.reportDate, date)).then(rows => rows[0]);
 }
 
 export async function getZReportsByDateRange(startDate: string, endDate: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   return db.select().from(zReports).where(and(
-    gte(zReports.date, startDate),
-    lte(zReports.date, endDate)
-  )).orderBy(desc(zReports.date));
+    gte(zReports.reportDate, startDate),
+    lte(zReports.reportDate, endDate)
+  )).orderBy(desc(zReports.reportDate));
 }
 
 export async function getZReportDetails(reportId: number) {
@@ -677,7 +693,7 @@ export async function approveVoid(orderId: number, approvedBy: number) {
   return db.update(orders).set({
     voidApprovedBy: approvedBy,
     voidApprovedAt: new Date(),
-  }).where(eq(orders.id, orderId)).returning();
+  }).where(eq(orders.id, orderId)).execute();
 }
 
 export async function getVoidAuditLog(orderId: number) {
@@ -689,7 +705,7 @@ export async function getVoidAuditLog(orderId: number) {
 export async function addVoidAuditLog(data: InsertVoidAuditLog) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(voidAuditLog).values(data).returning();
+  return db.insert(voidAuditLog).values(data).execute();
 }
 
 // ─── QR Codes ─────────────────────────────────────────────────────────
@@ -702,7 +718,7 @@ export async function listQRCodes() {
 export async function getQRCodeByTable(tableId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(qrCodes).where(eq(qrCodes.tableId, tableId)).get();
+  return db.select().from(qrCodes).where(eq(qrCodes.tableId, tableId)).then(rows => rows[0]);
 }
 
 export async function createOrUpdateQRCode(tableId: number, qrUrl: string, qrSize: number, format: string) {
@@ -710,9 +726,9 @@ export async function createOrUpdateQRCode(tableId: number, qrUrl: string, qrSiz
   if (!db) throw new Error("Database not available");
   const existing = await getQRCodeByTable(tableId);
   if (existing) {
-    return db.update(qrCodes).set({ qrUrl, qrSize, format }).where(eq(qrCodes.tableId, tableId)).returning();
+    return db.update(qrCodes).set({ qrUrl, qrSize, format }).where(eq(qrCodes.tableId, tableId)).execute();
   }
-  return db.insert(qrCodes).values({ tableId, qrUrl, qrSize, format }).returning();
+  return db.insert(qrCodes).values({ tableId, qrUrl, qrSize, format }).execute();
 }
 
 export async function deleteQRCode(tableId: number) {
@@ -724,7 +740,7 @@ export async function deleteQRCode(tableId: number) {
 export async function generateQRCodeForAllTables() {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const allTables = await db.select().from(tables).where(eq(tables.isActive, true));
+  const allTables = await db.select().from(tables);
   return allTables.map(t => ({ tableId: t.id, url: `/table/${t.id}` }));
 }
 
@@ -732,7 +748,7 @@ export async function generateQRCodeForAllTables() {
 export async function addToWaitlist(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(waitlist).values(data).returning();
+  return db.insert(waitlist).values(data).execute();
 }
 
 export async function getWaitlistQueue() {
@@ -744,7 +760,7 @@ export async function getWaitlistQueue() {
 export async function promoteFromWaitlist(guestId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(waitlist).set({ status: "called" }).where(eq(waitlist.id, guestId)).returning();
+  return db.update(waitlist).set({ status: "called" }).where(eq(waitlist.id, guestId)).execute();
 }
 
 export async function removeFromWaitlist(guestId: number) {
@@ -765,7 +781,7 @@ export async function getWaitlistStats() {
 export async function createSegment(name: string, description: string, color: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(customerSegments).values({ name, description, color }).returning();
+  return db.insert(customerSegments).values({ name, description, color }).execute();
 }
 
 export async function getSegments() {
@@ -777,13 +793,13 @@ export async function getSegments() {
 export async function getSegmentById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(customerSegments).where(eq(customerSegments.id, id)).get();
+  return db.select().from(customerSegments).where(eq(customerSegments.id, id)).then(rows => rows[0]);
 }
 
 export async function updateSegment(id: number, name: string, description: string, color: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(customerSegments).set({ name, description, color }).where(eq(customerSegments.id, id)).returning();
+  return db.update(customerSegments).set({ name, description, color }).where(eq(customerSegments.id, id)).execute();
 }
 
 export async function getSegmentMemberCount(segmentId: number) {
@@ -807,7 +823,7 @@ export async function exportSegmentCustomers(segmentId: number) {
 export async function createCampaign(name: string, type: string, content: string, segmentId?: number, subject?: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(campaigns).values({ name, type, content, segmentId, subject }).returning();
+  return db.insert(campaigns).values({ name, type: type as any, content, segmentId, subject }).execute();
 }
 
 export async function getCampaigns() {
@@ -819,7 +835,7 @@ export async function getCampaigns() {
 export async function getCampaignById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(campaigns).where(eq(campaigns.id, id)).get();
+  return db.select().from(campaigns).where(eq(campaigns.id, id)).then(rows => rows[0]);
 }
 
 export async function getCampaignStats(campaignId: number) {
@@ -844,8 +860,8 @@ export async function getCampaignRecipients(campaignId: number) {
 export async function addCampaignRecipients(campaignId: number, customerIds: number[]) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const recipients = customerIds.map(customerId => ({ campaignId, customerId, status: "pending" }));
-  return db.insert(campaignRecipients).values(recipients).returning();
+  const recipients = customerIds.map(customerId => ({ campaignId, customerId, status: "pending" as const }));
+  return db.insert(campaignRecipients).values(recipients).execute();
 }
 
 export async function deleteCampaign(id: number) {
@@ -863,7 +879,7 @@ export async function calculateMenuItemCost(menuItemId: number) {
   let totalCost = 0;
 
   for (const recipe of itemRecipes) {
-    const ingredient = await db.select().from(ingredients).where(eq(ingredients.id, recipe.ingredientId)).get();
+    const ingredient = await db.select().from(ingredients).where(eq(ingredients.id, recipe.ingredientId)).then(rows => rows[0]);
     if (ingredient) {
       const costPerUnit = parseFloat(ingredient.costPerUnit as any) || 0;
       const quantity = parseFloat(recipe.quantity as any) || 0;
@@ -878,7 +894,7 @@ export async function updateMenuItemCost(menuItemId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const cost = await calculateMenuItemCost(menuItemId);
-  return db.update(menuItems).set({ cost: cost.toString() }).where(eq(menuItems.id, menuItemId)).returning();
+  return db.update(menuItems).set({ cost: cost.toString() }).where(eq(menuItems.id, menuItemId)).execute();
 }
 
 export async function updateAllMenuItemCosts() {
@@ -895,7 +911,7 @@ export async function getMenuItemCostAnalysis(menuItemId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const item = await db.select().from(menuItems).where(eq(menuItems.id, menuItemId)).get();
+  const item = await db.select().from(menuItems).where(eq(menuItems.id, menuItemId)).then(rows => rows[0]);
   if (!item) return null;
 
   const itemRecipes = await db.select().from(recipes).where(eq(recipes.menuItemId, menuItemId));
@@ -903,7 +919,7 @@ export async function getMenuItemCostAnalysis(menuItemId: number) {
 
   let totalCost = 0;
   for (const recipe of itemRecipes) {
-    const ingredient = await db.select().from(ingredients).where(eq(ingredients.id, recipe.ingredientId)).get();
+    const ingredient = await db.select().from(ingredients).where(eq(ingredients.id, recipe.ingredientId)).then(rows => rows[0]);
     if (ingredient) {
       const costPerUnit = parseFloat(ingredient.costPerUnit as any) || 0;
       const quantity = parseFloat(recipe.quantity as any) || 0;
@@ -1091,7 +1107,7 @@ export async function getCustomerWithOrderHistory(customerId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const customer = await db.select().from(customers).where(eq(customers.id, customerId)).get();
+  const customer = await db.select().from(customers).where(eq(customers.id, customerId)).then(rows => rows[0]);
   if (!customer) return null;
 
   const orderHistory = await db
@@ -1114,7 +1130,7 @@ export async function getOrderWithItems(orderId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const order = await db.select().from(orders).where(eq(orders.id, orderId)).get();
+  const order = await db.select().from(orders).where(eq(orders.id, orderId)).then(rows => rows[0]);
   if (!order) return null;
 
   const items = await db
@@ -1137,7 +1153,7 @@ export async function getLoyaltyPointsHistory(customerId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const customer = await db.select().from(customers).where(eq(customers.id, customerId)).get();
+  const customer = await db.select().from(customers).where(eq(customers.id, customerId)).then(rows => rows[0]);
   if (!customer) return null;
 
   const orders_ = await db
@@ -1166,34 +1182,37 @@ export async function createOrderFromCustomerOrder(customerId: number, sourceOrd
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const sourceOrder = await db.select().from(orders).where(eq(orders.id, sourceOrderId)).get();
+  const sourceOrder = await db.select().from(orders).where(eq(orders.id, sourceOrderId)).then(rows => rows[0]);
   if (!sourceOrder) throw new Error("Source order not found");
 
   const sourceItems = await db.select().from(orderItems).where(eq(orderItems.orderId, sourceOrderId));
 
-  const newOrder = await db.insert(orders).values({
+  const result = await db.insert(orders).values({
     orderNumber: `REPEAT-${Date.now()}`,
     type: sourceOrder.type,
-    status: "pending",
+    status: "pending" as const,
     customerId,
     tableId: newTableId,
     subtotal: sourceOrder.subtotal,
     taxAmount: sourceOrder.taxAmount,
     total: sourceOrder.total,
-  }).returning();
+  }).execute();
+
+  const newOrderId = (result as any)[0]?.insertId || (result as any).insertId;
 
   for (const item of sourceItems) {
     await db.insert(orderItems).values({
-      orderId: newOrder[0].id,
+      orderId: newOrderId,
       menuItemId: item.menuItemId,
+      name: (item as any).name || 'Item',
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: item.totalPrice,
       notes: item.notes,
-    });
+    }).execute();
   }
 
-  return newOrder[0];
+  return { id: newOrderId };
 }
 
 // ─── Order History & Receipts ────────────────────────────────────────
@@ -1227,7 +1246,7 @@ export async function getOrderHistory(filters?: { dateFrom?: string; dateTo?: st
     );
   }
 
-  let query = db
+  const baseQuery = db
     .select({
       id: orders.id,
       orderNumber: orders.orderNumber,
@@ -1249,10 +1268,10 @@ export async function getOrderHistory(filters?: { dateFrom?: string; dateTo?: st
     .groupBy(orders.id);
 
   if (conditions.length > 0) {
-    query = query.where(and(...conditions));
+    return baseQuery.where(and(...conditions)).orderBy(desc(orders.createdAt)).limit(500);
   }
 
-  return query.orderBy(desc(orders.createdAt)).limit(500);
+  return baseQuery.orderBy(desc(orders.createdAt)).limit(500);
 }
 
 export async function getOrderDetailsForReceipt(orderId: number) {
@@ -1396,48 +1415,47 @@ export async function getSections() {
 export async function createSection(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(sections).values(data).returning();
+  return db.insert(sections).values(data).execute();
 }
 
 export async function updateSection(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(sections).set(data).where(eq(sections.id, id)).returning();
+  return db.update(sections).set(data).where(eq(sections.id, id)).execute();
 }
 
 export async function deleteSection(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(sections).set({ isActive: false }).where(eq(sections.id, id)).returning();
+  return db.update(sections).set({ isActive: false }).where(eq(sections.id, id)).execute();
 }
 
 export async function getTablesBySection(section?: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  let query = db.select().from(tables).where(eq(tables.isActive, true));
   if (section) {
-    query = query.where(eq(tables.section, section));
+    return db.select().from(tables).where(eq(tables.section, section)).orderBy(asc(tables.name));
   }
-  return query.orderBy(asc(tables.name));
+  return db.select().from(tables).orderBy(asc(tables.name));
 }
 
 export async function updateTablePosition(id: number, data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(tables).set(data).where(eq(tables.id, id)).returning();
+  return db.update(tables).set(data).where(eq(tables.id, id)).execute();
 }
 
 export async function updateTableStatus(id: number, status: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.update(tables).set({ status }).where(eq(tables.id, id)).returning();
+  return db.update(tables).set({ status: status as any }).where(eq(tables.id, id)).execute();
 }
 
 export async function getTableWithOrders(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const table = await db.select().from(tables).where(eq(tables.id, id)).get();
+  const table = await db.select().from(tables).where(eq(tables.id, id)).then(rows => rows[0]);
   if (!table) return null;
 
   const activeOrders = await db
@@ -1504,7 +1522,7 @@ export async function generateThermalReceiptFormat(orderId: number) {
   lines.push("--------------------------------");
 
   for (const item of receiptData.items) {
-    const itemLine = `${item.itemName.substring(0, 20)} x${item.quantity}`;
+    const itemLine = `${(item.itemName || 'Unknown').substring(0, 20)} x${item.quantity}`;
     const priceLine = `$${parseFloat(item.totalPrice as any).toFixed(2)}`;
     lines.push(itemLine.padEnd(25) + priceLine.padStart(7));
     if (item.notes) {
@@ -1697,6 +1715,7 @@ export async function updateOrderStatus(orderId: number, newStatus: string) {
 
 // ─── Push Notifications ───────────────────────────────────────────
 export async function notifyOrderStatusChange(orderId: number, newStatus: string) {
+  const db = await getDb();
   // This is a placeholder for push notification infrastructure
   // In production, this would integrate with a service like Firebase Cloud Messaging
   // or Web Push API to send notifications to customers
@@ -1705,6 +1724,7 @@ export async function notifyOrderStatusChange(orderId: number, newStatus: string
   if (!order || !order[0]) return null;
 
   const orderData = order[0];
+  if (!orderData.customerId) return null;
   const customer = await db.select().from(customers).where(eq(customers.id, orderData.customerId)).limit(1);
 
   if (!customer || !customer[0]) return null;
@@ -1727,6 +1747,7 @@ export async function notifyOrderStatusChange(orderId: number, newStatus: string
 }
 
 export async function getOrderNotificationHistory(orderId: number) {
+  const db = await getDb();
   // Placeholder for retrieving notification history
   // In production, this would query a notifications table
   const order = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
@@ -1748,37 +1769,39 @@ export async function getTimesheetData(
   staffId?: number,
   role?: string
 ) {
-  let query = db
+  const db = await getDb();
+  const startDateStr = startDate instanceof Date ? startDate.toISOString().split('T')[0] : String(startDate);
+  const endDateStr = endDate instanceof Date ? endDate.toISOString().split('T')[0] : String(endDate);
+  
+  const conditions: any[] = [
+    gte(shifts.date, startDateStr),
+    lte(shifts.date, endDateStr),
+  ];
+  if (staffId) conditions.push(eq(shifts.staffId, staffId));
+  if (role) conditions.push(eq(staff.role, role as any));
+
+  const rows = await db
     .select({
       staffId: shifts.staffId,
       staffName: staff.name,
       staffRole: staff.role,
       shiftDate: shifts.date,
-      clockIn: shifts.clockIn,
-      clockOut: shifts.clockOut,
-      hoursWorked: shifts.hoursWorked,
-      hourlyRate: shifts.hourlyRate,
-      totalCost: shifts.totalCost,
+      clockIn: shifts.startTime,
+      clockOut: shifts.endTime,
+      hourlyRate: staff.hourlyRate,
     })
     .from(shifts)
     .innerJoin(staff, eq(shifts.staffId, staff.id))
-    .where(
-      and(
-        gte(shifts.date, startDate),
-        lte(shifts.date, endDate),
-        eq(shifts.status, "completed")
-      )
-    );
+    .where(and(...conditions));
 
-  if (staffId) {
-    query = query.where(eq(shifts.staffId, staffId));
-  }
-
-  if (role) {
-    query = query.where(eq(staff.role, role));
-  }
-
-  return await query.orderBy(shifts.date, staff.name);
+  // Calculate hours worked and total cost from startTime/endTime strings
+  return rows.map(r => {
+    const [sh, sm] = (r.clockIn || '0:0').split(':').map(Number);
+    const [eh, em] = (r.clockOut || '0:0').split(':').map(Number);
+    const hoursWorked = Math.max(0, (eh * 60 + em - sh * 60 - sm) / 60);
+    const rate = parseFloat(r.hourlyRate || '0');
+    return { ...r, hoursWorked, totalCost: hoursWorked * rate };
+  });
 }
 
 export async function calculateTimesheetSummary(
@@ -1787,6 +1810,7 @@ export async function calculateTimesheetSummary(
   staffId?: number,
   role?: string
 ) {
+  const db = await getDb();
   const timesheetData = await getTimesheetData(startDate, endDate, staffId, role);
 
   const summary = {
@@ -1795,7 +1819,7 @@ export async function calculateTimesheetSummary(
     totalLabourCost: timesheetData.reduce((sum, t) => sum + (t.totalCost || 0), 0),
     averageHourlyRate:
       timesheetData.length > 0
-        ? timesheetData.reduce((sum, t) => sum + (t.hourlyRate || 0), 0) /
+        ? timesheetData.reduce((sum, t) => sum + parseFloat(String(t.hourlyRate || '0')), 0) /
           timesheetData.length
         : 0,
     entries: timesheetData,
@@ -1810,6 +1834,7 @@ export async function generateTimesheetCSV(
   staffId?: number,
   role?: string
 ) {
+  const db = await getDb();
   const summary = await calculateTimesheetSummary(startDate, endDate, staffId, role);
 
   // CSV Header
@@ -1825,15 +1850,15 @@ export async function generateTimesheetCSV(
   ];
 
   // CSV Rows
-  const rows = summary.entries.map((entry) => [
+  const rows = summary.entries.map((entry: any) => [
     entry.staffName,
     entry.staffRole,
-    entry.shiftDate.toISOString().split("T")[0],
-    entry.clockIn ? new Date(entry.clockIn).toLocaleTimeString() : "",
-    entry.clockOut ? new Date(entry.clockOut).toLocaleTimeString() : "",
-    entry.hoursWorked?.toFixed(2) || "0",
-    entry.hourlyRate?.toFixed(2) || "0",
-    entry.totalCost?.toFixed(2) || "0",
+    String(entry.shiftDate || ''),
+    entry.clockIn || '',
+    entry.clockOut || '',
+    (entry.hoursWorked || 0).toFixed(2),
+    parseFloat(entry.hourlyRate || '0').toFixed(2),
+    (entry.totalCost || 0).toFixed(2),
   ]);
 
   // Summary rows
@@ -1852,44 +1877,58 @@ export async function generateTimesheetCSV(
 }
 
 export async function getStaffTimesheetStats(staffId: number, startDate: Date, endDate: Date) {
+  const db = await getDb();
+  const startDateStr = startDate instanceof Date ? startDate.toISOString().split('T')[0] : String(startDate);
+  const endDateStr = endDate instanceof Date ? endDate.toISOString().split('T')[0] : String(endDate);
   const data = await db
     .select({
-      totalHours: shifts.hoursWorked,
-      totalCost: shifts.totalCost,
-      shiftCount: shifts.id,
+      startTime: shifts.startTime,
+      endTime: shifts.endTime,
+      shiftId: shifts.id,
     })
     .from(shifts)
     .where(
       and(
         eq(shifts.staffId, staffId),
-        gte(shifts.date, startDate),
-        lte(shifts.date, endDate),
-        eq(shifts.status, "completed")
+        gte(shifts.date, startDateStr),
+        lte(shifts.date, endDateStr)
       )
     );
 
+  const staffData = await db.select().from(staff).where(eq(staff.id, staffId)).limit(1).then((r: any[]) => r[0]);
+  const rate = parseFloat(staffData?.hourlyRate || '0');
+  const totalHours = data.reduce((sum: number, d: any) => {
+    const [sh, sm] = (d.startTime || '0:0').split(':').map(Number);
+    const [eh, em] = (d.endTime || '0:0').split(':').map(Number);
+    return sum + Math.max(0, (eh * 60 + em - sh * 60 - sm) / 60);
+  }, 0);
+
   return {
     totalShifts: data.length,
-    totalHours: data.reduce((sum, d) => sum + (d.totalHours || 0), 0),
-    totalLabourCost: data.reduce((sum, d) => sum + (d.totalCost || 0), 0),
-    averageHoursPerShift: data.length > 0 ? data.reduce((sum, d) => sum + (d.totalHours || 0), 0) / data.length : 0,
+    totalHours,
+    totalLabourCost: totalHours * rate,
+    averageHoursPerShift: data.length > 0 ? totalHours / data.length : 0,
   };
 }
 
 // ─── Dayparts & Dynamic Pricing ───────────────────────────────────────────
 export async function createDaypart(data: { name: string; startTime: string; endTime: string }) {
+  const db = await getDb();
   return await db.insert(dayparts).values(data);
 }
 
 export async function getDayparts() {
+  const db = await getDb();
   return await db.select().from(dayparts).where(eq(dayparts.isActive, true));
 }
 
 export async function updateDaypart(id: number, data: Partial<{ name: string; startTime: string; endTime: string; isActive: boolean }>) {
+  const db = await getDb();
   return await db.update(dayparts).set(data).where(eq(dayparts.id, id));
 }
 
 export async function getCurrentDaypart() {
+  const db = await getDb();
   const now = new Date();
   const currentTime = now.getHours().toString().padStart(2, "0") + ":" + now.getMinutes().toString().padStart(2, "0");
   
@@ -1908,6 +1947,7 @@ export async function getCurrentDaypart() {
 }
 
 export async function getMenuItemDaypartPrice(menuItemId: number, daypartId: number) {
+  const db = await getDb();
   const result = await db.select().from(menuItemDayparts)
     .where(and(eq(menuItemDayparts.menuItemId, menuItemId), eq(menuItemDayparts.daypartId, daypartId)))
     .limit(1);
@@ -1915,10 +1955,12 @@ export async function getMenuItemDaypartPrice(menuItemId: number, daypartId: num
 }
 
 export async function setMenuItemDaypartPrice(menuItemId: number, daypartId: number, price: string) {
+  const db = await getDb();
   return await db.insert(menuItemDayparts).values({ menuItemId, daypartId, price }).onDuplicateKeyUpdate({ set: { price } });
 }
 
 export async function getMenuItemAllDaypartPrices(menuItemId: number) {
+  const db = await getDb();
   return await db.select({
     daypartId: menuItemDayparts.daypartId,
     daypartName: dayparts.name,
@@ -1930,14 +1972,17 @@ export async function getMenuItemAllDaypartPrices(menuItemId: number) {
 
 // ─── Void/Refund Reason Tracking ───────────────────────────────────────────
 export async function recordOrderVoid(orderId: number, reason: string, notes: string | null, voidedBy: number) {
+  const db = await getDb();
   return await db.insert(orderVoidReasons).values({ orderId, reason: reason as any, notes, voidedBy });
 }
 
 export async function recordOrderItemVoid(orderItemId: number, reason: string, notes: string | null, voidedBy: number) {
+  const db = await getDb();
   return await db.insert(orderItemVoidReasons).values({ orderItemId, reason: reason as any, notes, voidedBy });
 }
 
 export async function getVoidReasonReport(startDate: Date, endDate: Date) {
+  const db = await getDb();
   const orderVoids = await db.select({
     reason: orderVoidReasons.reason,
     count: sql<number>`count(*)`,
@@ -1951,6 +1996,7 @@ export async function getVoidReasonReport(startDate: Date, endDate: Date) {
 }
 
 export async function getVoidReasonsByStaff(staffId: number, startDate: Date, endDate: Date) {
+  const db = await getDb();
   return await db.select({
     reason: orderVoidReasons.reason,
     count: sql<number>`count(*)`,
@@ -1961,6 +2007,7 @@ export async function getVoidReasonsByStaff(staffId: number, startDate: Date, en
 }
 
 export async function getVoidReasonStats(startDate: Date, endDate: Date) {
+  const db = await getDb();
   const stats = await db.select({
     reason: orderVoidReasons.reason,
     count: sql<number>`count(*)`,
@@ -1974,64 +2021,79 @@ export async function getVoidReasonStats(startDate: Date, endDate: Date) {
 
 // ─── SMS Notifications ───────────────────────────────────────────────────────
 export async function getSmsSettings() {
-  return db.query.smsSettings.findFirst();
+  const db = await getDb();
+  return db.select().from(smsSettings).limit(1).then((r: any[]) => r[0]);
 }
 
 export async function updateSmsSettings(data: { twilioAccountSid?: string; twilioAuthToken?: string; twilioPhoneNumber?: string; isEnabled?: boolean }) {
+  const db = await getDb();
   return db.update(smsSettings).set(data).execute();
 }
 
 export async function sendSmsMessage(customerId: number | null, phoneNumber: string, message: string, type: string) {
+  const db = await getDb();
   return db.insert(smsMessages).values({ customerId, phoneNumber, message, type, status: "pending" }).execute();
 }
 
 export async function updateSmsStatus(messageId: number, status: string, deliveredAt?: Date, failureReason?: string) {
+  const db = await getDb();
   return db.update(smsMessages).set({ status, deliveredAt, failureReason }).where(eq(smsMessages.id, messageId)).execute();
 }
 
 export async function getSmsPreferences(customerId: number) {
-  return db.query.customerSmsPreferences.findFirst({ where: eq(customerSmsPreferences.customerId, customerId) });
+  const db = await getDb();
+  return db.select().from(customerSmsPreferences).where(eq(customerSmsPreferences.customerId, customerId)).limit(1).then((r: any[]) => r[0]);
 }
 
 export async function updateSmsPreferences(customerId: number, prefs: any) {
+  const db = await getDb();
   return db.update(customerSmsPreferences).set(prefs).where(eq(customerSmsPreferences.customerId, customerId)).execute();
 }
 
 export async function getSmsMessageHistory(customerId: number) {
-  return db.query.smsMessages.findMany({ where: eq(smsMessages.customerId, customerId) });
+  const db = await getDb();
+  return db.select().from(smsMessages).where(eq(smsMessages.customerId, customerId));
 }
 
 // ─── Email Campaigns ───────────────────────────────────────────────────────
 export async function createEmailTemplate(name: string, subject: string, htmlContent: string) {
+  const db = await getDb();
   return db.insert(emailTemplates).values({ name, subject, htmlContent }).execute();
 }
 
 export async function getEmailTemplates() {
-  return db.query.emailTemplates.findMany();
+  const db = await getDb();
+  return db.select().from(emailTemplates);
 }
 
 export async function createEmailCampaign(name: string, templateId: number, segmentId?: number) {
+  const db = await getDb();
   return db.insert(emailCampaigns).values({ name, templateId, segmentId, status: "draft" }).execute();
 }
 
 export async function getEmailCampaigns() {
-  return db.query.emailCampaigns.findMany();
+  const db = await getDb();
+  return db.select().from(emailCampaigns);
 }
 
 export async function updateEmailCampaignStatus(campaignId: number, status: string, sentAt?: Date) {
+  const db = await getDb();
   return db.update(emailCampaigns).set({ status, sentAt }).where(eq(emailCampaigns.id, campaignId)).execute();
 }
 
 export async function addEmailCampaignRecipient(campaignId: number, customerId: number, email: string) {
+  const db = await getDb();
   return db.insert(emailCampaignRecipients).values({ campaignId, customerId, email, status: "pending" }).execute();
 }
 
 export async function updateEmailRecipientStatus(recipientId: number, status: string, openedAt?: Date, clickedAt?: Date) {
+  const db = await getDb();
   return db.update(emailCampaignRecipients).set({ status, openedAt, clickedAt }).where(eq(emailCampaignRecipients.id, recipientId)).execute();
 }
 
 export async function getEmailCampaignStats(campaignId: number) {
-  const recipients = await db.query.emailCampaignRecipients.findMany({ where: eq(emailCampaignRecipients.campaignId, campaignId) });
+  const db = await getDb();
+  const recipients = await db.select().from(emailCampaignRecipients).where(eq(emailCampaignRecipients.campaignId, campaignId));
   return {
     total: recipients.length,
     sent: recipients.filter((r) => r.sentAt).length,
@@ -2042,16 +2104,17 @@ export async function getEmailCampaignStats(campaignId: number) {
 
 // ─── Inventory Waste Tracking ───────────────────────────────────────────────
 export async function logWaste(ingredientId: number, quantity: string, unit: string, reason: string, cost: string, notes: string | null, loggedBy: number) {
-  return db.insert(wasteLogs).values({ ingredientId, quantity: new Decimal(quantity), unit, reason, cost: new Decimal(cost), notes, loggedBy }).execute();
+  const db = await getDb();
+  return db.insert(wasteLogs).values({ ingredientId, quantity: String(quantity), unit, reason, cost: String(cost), notes, loggedBy }).execute();
 }
 
 export async function getWasteLogs(startDate: Date, endDate: Date) {
-  return db.query.wasteLogs.findMany({
-    where: and(gte(wasteLogs.loggedAt, startDate), lte(wasteLogs.loggedAt, endDate)),
-  });
+  const db = await getDb();
+  return db.select().from(wasteLogs).where(and(gte(wasteLogs.loggedAt, startDate), lte(wasteLogs.loggedAt, endDate)),);
 }
 
 export async function getWasteByReason(startDate: Date, endDate: Date) {
+  const db = await getDb();
   const logs = await getWasteLogs(startDate, endDate);
   const grouped: Record<string, { count: number; totalCost: number }> = {};
   logs.forEach((log) => {
@@ -2063,11 +2126,13 @@ export async function getWasteByReason(startDate: Date, endDate: Date) {
 }
 
 export async function getTotalWasteCost(startDate: Date, endDate: Date) {
+  const db = await getDb();
   const logs = await getWasteLogs(startDate, endDate);
   return logs.reduce((sum, log) => sum + Number(log.cost), 0);
 }
 
 export async function getWasteByIngredient(startDate: Date, endDate: Date) {
+  const db = await getDb();
   const logs = await getWasteLogs(startDate, endDate);
   const grouped: Record<number, { ingredientId: number; count: number; totalCost: number }> = {};
   logs.forEach((log) => {
@@ -2080,187 +2145,228 @@ export async function getWasteByIngredient(startDate: Date, endDate: Date) {
 
 // ─── Multi-Location Support ────────────────────────────────────────────────
 export async function createLocation(name: string, address: string, phone?: string, email?: string, timezone?: string) {
+  const db = await getDb();
   return db.insert(locations).values({ name, address, phone, email, timezone }).execute();
 }
 
 export async function getLocations() {
-  return db.query.locations.findMany();
+  const db = await getDb();
+  return db.select().from(locations);
 }
 
 export async function getLocationById(id: number) {
-  return db.query.locations.findFirst({ where: eq(locations.id, id) });
+  const db = await getDb();
+  return db.select().from(locations).where(eq(locations.id, id)).limit(1).then((r: any[]) => r[0]);
 }
 
 export async function updateLocation(id: number, data: any) {
+  const db = await getDb();
   return db.update(locations).set(data).where(eq(locations.id, id)).execute();
 }
 
 // ─── Combo/Bundle Management ───────────────────────────────────────────────
 export async function createCombo(locationId: number | null, name: string, price: string, regularPrice?: string, discount?: string) {
-  return db.insert(combos).values({ locationId, name, price: new Decimal(price), regularPrice: regularPrice ? new Decimal(regularPrice) : undefined, discount: discount ? new Decimal(discount) : undefined }).execute();
+  const db = await getDb();
+  return db.insert(combos).values({ locationId, name, price: String(price), regularPrice: regularPrice ? String(regularPrice) : undefined, discount: discount ? String(discount) : undefined }).execute();
 }
 
 export async function getCombos(locationId?: number) {
+  const db = await getDb();
   if (locationId) {
-    return db.query.combos.findMany({ where: eq(combos.locationId, locationId) });
+    return db.select().from(combos).where(eq(combos.locationId, locationId));
   }
-  return db.query.combos.findMany();
+  return db.select().from(combos);
 }
 
 export async function getComboById(id: number) {
-  return db.query.combos.findFirst({ where: eq(combos.id, id) });
+  const db = await getDb();
+  return db.select().from(combos).where(eq(combos.id, id)).limit(1).then((r: any[]) => r[0]);
 }
 
 export async function addComboItem(comboId: number, menuItemId: number, quantity: number) {
+  const db = await getDb();
   return db.insert(comboItems).values({ comboId, menuItemId, quantity }).execute();
 }
 
 export async function getComboItems(comboId: number) {
-  return db.query.comboItems.findMany({ where: eq(comboItems.comboId, comboId) });
+  const db = await getDb();
+  return db.select().from(comboItems).where(eq(comboItems.comboId, comboId));
 }
 
 // ─── Advanced Labour Management ────────────────────────────────────────────
 export async function createLabourCompliance(locationId: number | null, maxHoursPerWeek: number, minBreakMinutes: number, overtimeThreshold: number, overtimeMultiplier: string) {
-  return db.insert(labourCompliance).values({ locationId, maxHoursPerWeek, minBreakMinutes, overtimeThreshold, overtimeMultiplier: new Decimal(overtimeMultiplier) }).execute();
+  const db = await getDb();
+  return db.insert(labourCompliance).values({ locationId, maxHoursPerWeek, minBreakMinutes, overtimeThreshold, overtimeMultiplier: String(overtimeMultiplier) }).execute();
 }
 
 export async function getLabourCompliance(locationId: number | null) {
+  const db = await getDb();
   if (locationId) {
-    return db.query.labourCompliance.findFirst({ where: eq(labourCompliance.locationId, locationId) });
+    return db.select().from(labourCompliance).where(eq(labourCompliance.locationId, locationId)).limit(1).then((r: any[]) => r[0]);
   }
-  return db.query.labourCompliance.findFirst();
+  return db.select().from(labourCompliance).limit(1).then((r: any[]) => r[0]);
 }
 
 export async function addStaffAvailability(staffId: number, dayOfWeek: number, startTime: string, endTime: string) {
+  const db = await getDb();
   return db.insert(staffAvailability).values({ staffId, dayOfWeek, startTime, endTime }).execute();
 }
 
 export async function getStaffAvailability(staffId: number) {
-  return db.query.staffAvailability.findMany({ where: eq(staffAvailability.staffId, staffId) });
+  const db = await getDb();
+  return db.select().from(staffAvailability).where(eq(staffAvailability.staffId, staffId));
 }
 
 export async function createTimeOffRequest(staffId: number, startDate: Date, endDate: Date, reason?: string) {
+  const db = await getDb();
   return db.insert(timeOffRequests).values({ staffId, startDate, endDate, reason, status: "pending" }).execute();
 }
 
 export async function getTimeOffRequests(staffId?: number) {
+  const db = await getDb();
   if (staffId) {
-    return db.query.timeOffRequests.findMany({ where: eq(timeOffRequests.staffId, staffId) });
+    return db.select().from(timeOffRequests).where(eq(timeOffRequests.staffId, staffId));
   }
-  return db.query.timeOffRequests.findMany();
+  return db.select().from(timeOffRequests);
 }
 
 export async function approveTimeOffRequest(id: number, approvedBy: number) {
+  const db = await getDb();
   return db.update(timeOffRequests).set({ status: "approved", approvedBy, approvedAt: new Date() }).where(eq(timeOffRequests.id, id)).execute();
 }
 
 export async function rejectTimeOffRequest(id: number) {
+  const db = await getDb();
   return db.update(timeOffRequests).set({ status: "rejected" }).where(eq(timeOffRequests.id, id)).execute();
 }
 
 export async function createOvertimeAlert(staffId: number, weekStartDate: Date, totalHours: string, overtimeHours: string) {
-  return db.insert(overtimeAlerts).values({ staffId, weekStartDate, totalHours: new Decimal(totalHours), overtimeHours: new Decimal(overtimeHours) }).execute();
+  const db = await getDb();
+  return db.insert(overtimeAlerts).values({ staffId, weekStartDate, totalHours: String(totalHours), overtimeHours: String(overtimeHours) }).execute();
 }
 
 export async function getOvertimeAlerts(staffId?: number) {
+  const db = await getDb();
   if (staffId) {
-    return db.query.overtimeAlerts.findMany({ where: eq(overtimeAlerts.staffId, staffId) });
+    return db.select().from(overtimeAlerts).where(eq(overtimeAlerts.staffId, staffId));
   }
-  return db.query.overtimeAlerts.findMany();
+  return db.select().from(overtimeAlerts);
 }
 
 export async function createLabourBudget(locationId: number | null, month: number, year: number, budgetedHours: string, budgetedCost: string) {
-  return db.insert(labourBudget).values({ locationId, month, year, budgetedHours: new Decimal(budgetedHours), budgetedCost: new Decimal(budgetedCost) }).execute();
+  const db = await getDb();
+  return db.insert(labourBudget).values({ locationId, month, year, budgetedHours: String(budgetedHours), budgetedCost: String(budgetedCost) }).execute();
 }
 
 export async function getLabourBudget(locationId: number | null, month: number, year: number) {
+  const db = await getDb();
   if (locationId) {
-    return db.query.labourBudget.findFirst({ where: and(eq(labourBudget.locationId, locationId), eq(labourBudget.month, month), eq(labourBudget.year, year)) });
+    return db.select().from(labourBudget).where(and(eq(labourBudget.locationId, locationId), eq(labourBudget.month, month), eq(labourBudget.year, year))).limit(1).then((r: any[]) => r[0]);
   }
-  return db.query.labourBudget.findFirst({ where: and(eq(labourBudget.month, month), eq(labourBudget.year, year)) });
+  return db.select().from(labourBudget).where(and(eq(labourBudget.month, month), eq(labourBudget.year, year))).limit(1).then((r: any[]) => r[0]);
 }
 
 export async function updateLabourBudgetActuals(id: number, actualHours: string, actualCost: string) {
-  return db.update(labourBudget).set({ actualHours: new Decimal(actualHours), actualCost: new Decimal(actualCost) }).where(eq(labourBudget.id, id)).execute();
+  const db = await getDb();
+  return db.update(labourBudget).set({ actualHours: String(actualHours), actualCost: String(actualCost) }).where(eq(labourBudget.id, id)).execute();
 }
 
 // Payment Integration Helpers
 export async function createPaymentTransaction(orderId: number, amount: string, paymentMethod: string, provider: string, transactionId: string) {
-  return db.insert(paymentTransactions).values({ orderId, amount: parseFloat(amount), paymentMethod, provider, transactionId, status: "pending" });
+  const db = await getDb();
+  return db.insert(paymentTransactions).values({ orderId, amount, paymentMethod, provider, transactionId, status: "pending" });
 }
 
 export async function getPaymentsByOrder(orderId: number) {
-  return db.query.paymentTransactions.findMany({ where: eq(paymentTransactions.orderId, orderId) });
+  const db = await getDb();
+  return db.select().from(paymentTransactions).where(eq(paymentTransactions.orderId, orderId));
 }
 
 export async function updatePaymentStatus(id: number, status: string) {
+  const db = await getDb();
   return db.update(paymentTransactions).set({ status, updatedAt: new Date() }).where(eq(paymentTransactions.id, id));
 }
 
 export async function createRefund(id: number, refundAmount: string, refundStatus: string) {
-  return db.update(paymentTransactions).set({ refundAmount: parseFloat(refundAmount), refundStatus, updatedAt: new Date() }).where(eq(paymentTransactions.id, id));
+  const db = await getDb();
+  return db.update(paymentTransactions).set({ refundAmount: refundAmount, refundStatus, updatedAt: new Date() }).where(eq(paymentTransactions.id, id));
 }
 
 // Notifications Helpers
 export async function createNotification(userId: number, title: string, message: string, type: string, relatedId?: number) {
+  const db = await getDb();
   return db.insert(notifications).values({ userId, title, message, type, relatedId });
 }
 
 export async function getUserNotifications(userId: number) {
-  return db.query.notifications.findMany({ where: and(eq(notifications.userId, userId), eq(notifications.isArchived, false)), orderBy: desc(notifications.createdAt) });
+  const db = await getDb();
+  return db.select().from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.isArchived, false))).orderBy(desc(notifications.createdAt));
 }
 
 export async function markNotificationAsRead(id: number) {
+  const db = await getDb();
   return db.update(notifications).set({ isRead: true }).where(eq(notifications.id, id));
 }
 
 export async function archiveNotification(id: number) {
+  const db = await getDb();
   return db.update(notifications).set({ isArchived: true }).where(eq(notifications.id, id));
 }
 
 export async function getNotificationPreferences(userId: number) {
-  return db.query.notificationPreferences.findFirst({ where: eq(notificationPreferences.userId, userId) });
+  const db = await getDb();
+  return db.select().from(notificationPreferences).where(eq(notificationPreferences.userId, userId)).limit(1).then((r: any[]) => r[0]);
 }
 
 export async function updateNotificationPreferences(userId: number, prefs: any) {
+  const db = await getDb();
   return db.update(notificationPreferences).set(prefs).where(eq(notificationPreferences.userId, userId));
 }
 
 // Recipe Costing Analysis Helpers
 export async function recordRecipeCostHistory(recipeId: number, totalCost: string, ingredientCount: number) {
-  return db.insert(recipeCostHistory).values({ recipeId, totalCost: parseFloat(totalCost), ingredientCount });
+  const db = await getDb();
+  return db.insert(recipeCostHistory).values({ recipeId, totalCost, ingredientCount });
 }
 
 export async function getRecipeCostHistory(recipeId: number) {
-  return db.query.recipeCostHistory.findMany({ where: eq(recipeCostHistory.recipeId, recipeId), orderBy: desc(recipeCostHistory.recordedAt) });
+  const db = await getDb();
+  return db.select().from(recipeCostHistory).where(eq(recipeCostHistory.recipeId, recipeId)).orderBy(desc(recipeCostHistory.recordedAt));
 }
 
 export async function compareCostVsPrice(recipeId: number, menuItemId: number) {
+  const db = await getDb();
   const costHistory = await getRecipeCostHistory(recipeId);
-  const latestCost = costHistory[0]?.totalCost || 0;
-  const item = await db.query.menuItems.findFirst({ where: eq(menuItems.id, menuItemId) });
-  return { cost: latestCost, price: item?.price || 0, margin: (item?.price || 0) - latestCost, marginPercent: ((item?.price || 0) - latestCost) / (item?.price || 1) * 100 };
+  const latestCost = parseFloat(String(costHistory[0]?.totalCost || '0'));
+  const item = await db.select().from(menuItems).where(eq(menuItems.id, menuItemId)).limit(1).then((r: any[]) => r[0]);
+  const price = parseFloat(String(item?.price || '0'));
+  return { cost: latestCost, price, margin: price - latestCost, marginPercent: price > 0 ? ((price - latestCost) / price * 100) : 0 };
 }
 
 // Supplier Performance Tracking Helpers
 export async function recordSupplierPerformance(supplierId: number, month: number, year: number, totalOrders: number, onTimeDeliveries: number, lateDeliveries: number, qualityRating: string) {
+  const db = await getDb();
   const onTimeRate = totalOrders > 0 ? (onTimeDeliveries / totalOrders * 100) : 0;
-  return db.insert(supplierPerformance).values({ supplierId, month, year, totalOrders, onTimeDeliveries, lateDeliveries, onTimeRate: onTimeRate.toString(), qualityRating: parseFloat(qualityRating) });
+  return db.insert(supplierPerformance).values({ supplierId, month, year, totalOrders, onTimeDeliveries, lateDeliveries, onTimeRate: onTimeRate.toString(), qualityRating });
 }
 
 export async function getSupplierPerformance(supplierId: number) {
-  return db.query.supplierPerformance.findMany({ where: eq(supplierPerformance.supplierId, supplierId), orderBy: desc(supplierPerformance.year) });
+  const db = await getDb();
+  return db.select().from(supplierPerformance).where(eq(supplierPerformance.supplierId, supplierId)).orderBy(desc(supplierPerformance.year));
 }
 
 export async function recordSupplierPrice(supplierId: number, ingredientId: number, price: string, unit: string) {
-  return db.insert(supplierPriceHistory).values({ supplierId, ingredientId, price: parseFloat(price), unit });
+  const db = await getDb();
+  return db.insert(supplierPriceHistory).values({ supplierId, ingredientId, price, unit });
 }
 
 export async function getSupplierPriceHistory(supplierId: number, ingredientId: number) {
-  return db.query.supplierPriceHistory.findMany({ where: and(eq(supplierPriceHistory.supplierId, supplierId), eq(supplierPriceHistory.ingredientId, ingredientId)), orderBy: desc(supplierPriceHistory.recordedAt) });
+  const db = await getDb();
+  return db.select().from(supplierPriceHistory).where(and(eq(supplierPriceHistory.supplierId, supplierId), eq(supplierPriceHistory.ingredientId, ingredientId))).orderBy(desc(supplierPriceHistory.recordedAt));
 }
 
 export async function generateSupplierScorecard(supplierId: number) {
+  const db = await getDb();
   const performance = await getSupplierPerformance(supplierId);
   const latestPerf = performance[0];
   return { supplierId, onTimeRate: latestPerf?.onTimeRate || 0, qualityRating: latestPerf?.qualityRating || 0, averagePrice: latestPerf?.averagePrice || 0, totalOrders: latestPerf?.totalOrders || 0 };

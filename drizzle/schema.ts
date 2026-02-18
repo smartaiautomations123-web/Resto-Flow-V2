@@ -763,7 +763,7 @@ export const paymentTransactions = mysqlTable("payment_transactions", {
   provider: varchar("provider", { length: 50 }), // stripe, square
   transactionId: varchar("transaction_id", { length: 255 }),
   status: varchar("status", { length: 50 }), // pending, completed, failed, refunded
-  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }).default(0),
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }).default('0'),
   refundStatus: varchar("refund_status", { length: 50 }),
   createdAt: timestamp().defaultNow(),
   updatedAt: timestamp().onUpdateNow(),
@@ -809,8 +809,8 @@ export const supplierPerformance = mysqlTable("supplier_performance", {
   totalOrders: int().default(0),
   onTimeDeliveries: int().default(0),
   lateDeliveries: int().default(0),
-  onTimeRate: decimal("on_time_rate", { precision: 5, scale: 2 }).default(0),
-  averagePrice: decimal("average_price", { precision: 10, scale: 2 }).default(0),
+  onTimeRate: decimal("on_time_rate", { precision: 5, scale: 2 }).default('0'),
+  averagePrice: decimal("average_price", { precision: 10, scale: 2 }).default('0'),
   qualityRating: decimal("quality_rating", { precision: 3, scale: 1 }),
   notes: text("notes"),
   createdAt: timestamp().defaultNow(),
