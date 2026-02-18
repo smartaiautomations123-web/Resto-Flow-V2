@@ -49,6 +49,8 @@ const menuItems = [
   { icon: QrCode, label: "QR Codes", path: "/qr-codes" },
   { icon: Clock, label: "Waitlist", path: "/waitlist" },
   { icon: TrendingUp, label: "Profitability", path: "/profitability" },
+          { icon: Clock, label: "Dayparts", path: "/dayparts" },
+          { icon: AlertCircle, label: "Void Reasons", path: "/void-reasons" },
   { icon: Zap, label: "Segments", path: "/segments" },
 ];
 

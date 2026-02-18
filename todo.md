@@ -158,19 +158,26 @@
 - [x] Create TimesheetExport component with date range and filter UI
 - [x] Write tests for timesheet procedures (8 tests)
 
-### 12. Daypart/Dynamic Pricing
-- [ ] Add daypart management (breakfast, lunch, dinner, happy hour, etc.)
-- [ ] Link dayparts to menu items
-- [ ] Set different prices per daypart
-- [ ] Auto-apply daypart pricing based on time of day
-- [ ] Show active daypart on POS
-- [ ] Backend: Add dayparts table and menu_item_dayparts table
+### 12. Daypart/Dynamic Pricing (Completed)
+- [x] Add daypart management (breakfast, lunch, dinner, happy hour, etc.)
+- [x] Link dayparts to menu items
+- [x] Set different prices per daypart
+- [x] Auto-apply daypart pricing based on time of day
+- [x] Show active daypart on POS
+- [x] Backend: Add dayparts table and menu_item_dayparts table
+- [x] Add 6 database helpers for daypart operations
+- [x] Add 6 tRPC endpoints for daypart management
+- [x] Create DaypartManagement page component
 
-### 13. Void/Refund Reason Tracking
-- [ ] Add void_reasons enum: customer_request, mistake, damage, comp, other
-- [ ] Track reason for each void/refund
-- [ ] Report on void reasons (identify patterns)
-- [ ] Backend: Add reason field to order items/orders
+### 13. Void/Refund Reason Tracking (Completed)
+- [x] Add void_reasons enum: customer_request, mistake, damage, comp, other
+- [x] Track reason for each void/refund
+- [x] Report on void reasons (identify patterns)
+- [x] Backend: Add reason field to order items/orders
+- [x] Add 4 database helpers for void reason tracking and analytics
+- [x] Add 5 tRPC endpoints for void reason management
+- [x] Create VoidReasonAnalytics page with charts and statistics
+- [x] Write tests for both features (7 tests)
 
 ---
 

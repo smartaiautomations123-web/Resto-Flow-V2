@@ -495,3 +495,61 @@ export type ZReport = typeof zReports.$inferSelect;
 export type InsertZReport = typeof zReports.$inferInsert;
 export type ZReportItem = typeof zReportItems.$inferSelect;
 export type ZReportShift = typeof zReportShifts.$inferSelect;
+
+// ─── Dayparts & Dynamic Pricing ───────────────────────────────────────────
+export const dayparts = mysqlTable("dayparts", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 50 }).notNull().unique(),
+  startTime: varchar("start_time", { length: 5 }).notNull(), // HH:MM format
+  endTime: varchar("end_time", { length: 5 }).notNull(), // HH:MM format
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").onUpdateNow(),
+});
+
+export const menuItemDayparts = mysqlTable("menu_item_dayparts", {
+  id: int("id").primaryKey().autoincrement(),
+  menuItemId: int("menu_item_id")
+    .notNull()
+    .references(() => menuItems.id, { onDelete: "cascade" }),
+  daypartId: int("daypart_id")
+    .notNull()
+    .references(() => dayparts.id, { onDelete: "cascade" }),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─── Void/Refund Reason Tracking ───────────────────────────────────────────
+export const voidReasons = mysqlEnum("void_reason", [
+  "customer_request",
+  "mistake",
+  "damage",
+  "comp",
+  "other",
+]);
+
+export const orderVoidReasons = mysqlTable("order_void_reasons", {
+  id: int("id").primaryKey().autoincrement(),
+  orderId: int("order_id")
+    .notNull()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  reason: voidReasons.notNull(),
+  notes: text("notes"),
+  voidedBy: int("voided_by")
+    .notNull()
+    .references(() => staff.id),
+  voidedAt: timestamp("voided_at").defaultNow(),
+});
+
+export const orderItemVoidReasons = mysqlTable("order_item_void_reasons", {
+  id: int("id").primaryKey().autoincrement(),
+  orderItemId: int("order_item_id")
+    .notNull()
+    .references(() => orderItems.id, { onDelete: "cascade" }),
+  reason: voidReasons.notNull(),
+  notes: text("notes"),
+  voidedBy: int("voided_by")
+    .notNull()
+    .references(() => staff.id),
+  voidedAt: timestamp("voided_at").defaultNow(),
+});

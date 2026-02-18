@@ -1875,3 +1875,99 @@ export async function getStaffTimesheetStats(staffId: number, startDate: Date, e
     averageHoursPerShift: data.length > 0 ? data.reduce((sum, d) => sum + (d.totalHours || 0), 0) / data.length : 0,
   };
 }
+
+// ─── Dayparts & Dynamic Pricing ───────────────────────────────────────────
+export async function createDaypart(data: { name: string; startTime: string; endTime: string }) {
+  return await db.insert(dayparts).values(data);
+}
+
+export async function getDayparts() {
+  return await db.select().from(dayparts).where(eq(dayparts.isActive, true));
+}
+
+export async function updateDaypart(id: number, data: Partial<{ name: string; startTime: string; endTime: string; isActive: boolean }>) {
+  return await db.update(dayparts).set(data).where(eq(dayparts.id, id));
+}
+
+export async function getCurrentDaypart() {
+  const now = new Date();
+  const currentTime = now.getHours().toString().padStart(2, "0") + ":" + now.getMinutes().toString().padStart(2, "0");
+  
+  const daypart = await db.select().from(dayparts)
+    .where(and(eq(dayparts.isActive, true)))
+    .limit(1);
+
+  if (!daypart || daypart.length === 0) return null;
+
+  for (const dp of daypart) {
+    if (currentTime >= dp.startTime && currentTime < dp.endTime) {
+      return dp;
+    }
+  }
+  return null;
+}
+
+export async function getMenuItemDaypartPrice(menuItemId: number, daypartId: number) {
+  const result = await db.select().from(menuItemDayparts)
+    .where(and(eq(menuItemDayparts.menuItemId, menuItemId), eq(menuItemDayparts.daypartId, daypartId)))
+    .limit(1);
+  return result[0] || null;
+}
+
+export async function setMenuItemDaypartPrice(menuItemId: number, daypartId: number, price: string) {
+  return await db.insert(menuItemDayparts).values({ menuItemId, daypartId, price }).onDuplicateKeyUpdate({ set: { price } });
+}
+
+export async function getMenuItemAllDaypartPrices(menuItemId: number) {
+  return await db.select({
+    daypartId: menuItemDayparts.daypartId,
+    daypartName: dayparts.name,
+    price: menuItemDayparts.price,
+  }).from(menuItemDayparts)
+    .innerJoin(dayparts, eq(menuItemDayparts.daypartId, dayparts.id))
+    .where(eq(menuItemDayparts.menuItemId, menuItemId));
+}
+
+// ─── Void/Refund Reason Tracking ───────────────────────────────────────────
+export async function recordOrderVoid(orderId: number, reason: string, notes: string | null, voidedBy: number) {
+  return await db.insert(orderVoidReasons).values({ orderId, reason: reason as any, notes, voidedBy });
+}
+
+export async function recordOrderItemVoid(orderItemId: number, reason: string, notes: string | null, voidedBy: number) {
+  return await db.insert(orderItemVoidReasons).values({ orderItemId, reason: reason as any, notes, voidedBy });
+}
+
+export async function getVoidReasonReport(startDate: Date, endDate: Date) {
+  const orderVoids = await db.select({
+    reason: orderVoidReasons.reason,
+    count: sql<number>`count(*)`,
+    totalAmount: sql<number>`sum(o.total)`,
+  }).from(orderVoidReasons)
+    .innerJoin(orders, eq(orderVoidReasons.orderId, orders.id))
+    .where(and(gte(orderVoidReasons.voidedAt, startDate), lte(orderVoidReasons.voidedAt, endDate)))
+    .groupBy(orderVoidReasons.reason);
+
+  return orderVoids;
+}
+
+export async function getVoidReasonsByStaff(staffId: number, startDate: Date, endDate: Date) {
+  return await db.select({
+    reason: orderVoidReasons.reason,
+    count: sql<number>`count(*)`,
+    notes: orderVoidReasons.notes,
+  }).from(orderVoidReasons)
+    .where(and(eq(orderVoidReasons.voidedBy, staffId), gte(orderVoidReasons.voidedAt, startDate), lte(orderVoidReasons.voidedAt, endDate)))
+    .groupBy(orderVoidReasons.reason);
+}
+
+export async function getVoidReasonStats(startDate: Date, endDate: Date) {
+  const stats = await db.select({
+    reason: orderVoidReasons.reason,
+    count: sql<number>`count(*)`,
+    percentage: sql<number>`round(count(*) * 100.0 / (select count(*) from order_void_reasons where voided_at >= ? and voided_at <= ?), 2)`,
+  }).from(orderVoidReasons)
+    .where(and(gte(orderVoidReasons.voidedAt, startDate), lte(orderVoidReasons.voidedAt, endDate)))
+    .groupBy(orderVoidReasons.reason);
+
+  return stats;
+}

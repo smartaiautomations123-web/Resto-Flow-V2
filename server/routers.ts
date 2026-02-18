@@ -756,6 +756,22 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
     updateStatus: protectedProcedure.input(z.object({ orderId: z.number(), status: z.string() }))
       .mutation(({ input }) => db.updateOrderStatus(input.orderId, input.status)),
   }),
+  dayparts: router({
+    list: publicProcedure.query(() => db.getDayparts()),
+    create: protectedProcedure.input(z.object({ name: z.string(), startTime: z.string(), endTime: z.string() })).mutation(({ input }) => db.createDaypart(input)),
+    update: protectedProcedure.input(z.object({ id: z.number(), name: z.string().optional(), startTime: z.string().optional(), endTime: z.string().optional(), isActive: z.boolean().optional() })).mutation(({ input }) => db.updateDaypart(input.id, input)),
+    getCurrent: publicProcedure.query(() => db.getCurrentDaypart()),
+    getMenuItemPrices: publicProcedure.input(z.object({ menuItemId: z.number() })).query(({ input }) => db.getMenuItemAllDaypartPrices(input.menuItemId)),
+    setMenuItemPrice: protectedProcedure.input(z.object({ menuItemId: z.number(), daypartId: z.number(), price: z.string() })).mutation(({ input }) => db.setMenuItemDaypartPrice(input.menuItemId, input.daypartId, input.price)),
+  }),
+  voidReasons: router({
+    recordOrderVoid: protectedProcedure.input(z.object({ orderId: z.number(), reason: z.string(), notes: z.string().nullable(), voidedBy: z.number() })).mutation(({ input }) => db.recordOrderVoid(input.orderId, input.reason, input.notes, input.voidedBy)),
+    recordItemVoid: protectedProcedure.input(z.object({ orderItemId: z.number(), reason: z.string(), notes: z.string().nullable(), voidedBy: z.number() })).mutation(({ input }) => db.recordOrderItemVoid(input.orderItemId, input.reason, input.notes, input.voidedBy)),
+    getReport: protectedProcedure.input(z.object({ startDate: z.date(), endDate: z.date() })).query(({ input }) => db.getVoidReasonReport(input.startDate, input.endDate)),
+    getStats: protectedProcedure.input(z.object({ startDate: z.date(), endDate: z.date() })).query(({ input }) => db.getVoidReasonStats(input.startDate, input.endDate)),
+    getByStaff: protectedProcedure.input(z.object({ staffId: z.number(), startDate: z.date(), endDate: z.date() })).query(({ input }) => db.getVoidReasonsByStaff(input.staffId, input.startDate, input.endDate)),
+  }),
+
   timesheet: router({
     getTimesheetData: protectedProcedure
       .input(

@@ -6,6 +6,8 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import DashboardLayout from "./components/DashboardLayout";
+import { DaypartManagement } from "@/pages/DaypartManagement";
+import { VoidReasonAnalytics } from "@/pages/VoidReasonAnalytics";
 import Dashboard from "./pages/Dashboard";
 import POS from "./pages/POS";
 import KDS from "./pages/KDS";
