@@ -384,3 +384,10 @@
 - [x] Location pricing page for per-location menu price overrides
 - [x] Unified order queue page showing all channels
 - [x] 13 vitest tests passing for new features
+
+
+## Module 5.1 - Technical Requirements & Aggregators (Completed)
+- [x] Offline mode with IndexedDB queue and automatic sync
+- [x] Barcode scanner support in POS (keyboard input, USB scanner)
+- [x] Third-party aggregator integration framework (Uber Eats, DoorDash, Deliveroo)
+- [~] PCI DSS compliance for card payments (full implementation - requires external audit)
