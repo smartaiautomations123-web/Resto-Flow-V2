@@ -553,3 +553,110 @@ export const orderItemVoidReasons = mysqlTable("order_item_void_reasons", {
     .references(() => staff.id),
   voidedAt: timestamp("voided_at").defaultNow(),
 });
+
+// ─── SMS Notifications ───────────────────────────────────────────────────────
+export const smsSettings = mysqlTable("sms_settings", {
+  id: int("id").primaryKey().autoincrement(),
+  restaurantId: int("restaurant_id").notNull(),
+  twilioAccountSid: varchar("twilio_account_sid", { length: 255 }),
+  twilioAuthToken: varchar("twilio_auth_token", { length: 255 }),
+  twilioPhoneNumber: varchar("twilio_phone_number", { length: 20 }),
+  isEnabled: boolean("is_enabled").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").onUpdateNow(),
+});
+
+export const smsMessages = mysqlTable("sms_messages", {
+  id: int("id").primaryKey().autoincrement(),
+  customerId: int("customer_id").references(() => customers.id, { onDelete: "cascade" }),
+  phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+  message: text("message").notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // reservation_confirmation, waitlist_ready, order_ready
+  status: varchar("status", { length: 20 }).default("pending"), // pending, sent, failed, delivered
+  sentAt: timestamp("sent_at"),
+  deliveredAt: timestamp("delivered_at"),
+  failureReason: text("failure_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const customerSmsPreferences = mysqlTable("customer_sms_preferences", {
+  id: int("id").primaryKey().autoincrement(),
+  customerId: int("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "cascade" }),
+  optInReservations: boolean("opt_in_reservations").default(true),
+  optInWaitlist: boolean("opt_in_waitlist").default(true),
+  optInOrderUpdates: boolean("opt_in_order_updates").default(true),
+  optInPromotions: boolean("opt_in_promotions").default(false),
+  updatedAt: timestamp("updated_at").onUpdateNow(),
+});
+
+// ─── Email Campaigns ───────────────────────────────────────────────────────
+export const emailTemplates = mysqlTable("email_templates", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 100 }).notNull(),
+  subject: varchar("subject", { length: 200 }).notNull(),
+  htmlContent: text("html_content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").onUpdateNow(),
+});
+
+export const emailCampaigns = mysqlTable("email_campaigns", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 100 }).notNull(),
+  templateId: int("template_id")
+    .notNull()
+    .references(() => emailTemplates.id),
+  segmentId: int("segment_id").references(() => customerSegments.id),
+  status: varchar("status", { length: 20 }).default("draft"), // draft, scheduled, sent, paused
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  recipientCount: int("recipient_count").default(0),
+  openCount: int("open_count").default(0),
+  clickCount: int("click_count").default(0),
+  conversionCount: int("conversion_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").onUpdateNow(),
+});
+
+export const emailCampaignRecipients = mysqlTable("email_campaign_recipients", {
+  id: int("id").primaryKey().autoincrement(),
+  campaignId: int("campaign_id")
+    .notNull()
+    .references(() => emailCampaigns.id, { onDelete: "cascade" }),
+  customerId: int("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "cascade" }),
+  email: varchar("email", { length: 255 }).notNull(),
+  status: varchar("status", { length: 20 }).default("pending"), // pending, sent, opened, clicked, converted
+  sentAt: timestamp("sent_at"),
+  openedAt: timestamp("opened_at"),
+  clickedAt: timestamp("clicked_at"),
+  convertedAt: timestamp("converted_at"),
+});
+
+// ─── Inventory Waste Tracking ───────────────────────────────────────────────
+export const wasteLogs = mysqlTable("waste_logs", {
+  id: int("id").primaryKey().autoincrement(),
+  ingredientId: int("ingredient_id")
+    .notNull()
+    .references(() => ingredients.id, { onDelete: "cascade" }),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
+  unit: varchar("unit", { length: 20 }).notNull(),
+  reason: varchar("reason", { length: 50 }).notNull(), // spoilage, damage, theft, expiration, other
+  cost: decimal("cost", { precision: 10, scale: 2 }).notNull(),
+  notes: text("notes"),
+  loggedBy: int("logged_by")
+    .notNull()
+    .references(() => staff.id),
+  loggedAt: timestamp("logged_at").defaultNow(),
+});
+
+export const wasteReports = mysqlTable("waste_reports", {
+  id: int("id").primaryKey().autoincrement(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  totalWasteCost: decimal("total_waste_cost", { precision: 12, scale: 2 }).notNull(),
+  wasteCount: int("waste_count").notNull(),
+  generatedAt: timestamp("generated_at").defaultNow(),
+});

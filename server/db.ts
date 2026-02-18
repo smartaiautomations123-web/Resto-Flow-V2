@@ -1971,3 +1971,109 @@ export async function getVoidReasonStats(startDate: Date, endDate: Date) {
 
   return stats;
 }
+
+// ─── SMS Notifications ───────────────────────────────────────────────────────
+export async function getSmsSettings() {
+  return db.query.smsSettings.findFirst();
+}
+
+export async function updateSmsSettings(data: { twilioAccountSid?: string; twilioAuthToken?: string; twilioPhoneNumber?: string; isEnabled?: boolean }) {
+  return db.update(smsSettings).set(data).execute();
+}
+
+export async function sendSmsMessage(customerId: number | null, phoneNumber: string, message: string, type: string) {
+  return db.insert(smsMessages).values({ customerId, phoneNumber, message, type, status: "pending" }).execute();
+}
+
+export async function updateSmsStatus(messageId: number, status: string, deliveredAt?: Date, failureReason?: string) {
+  return db.update(smsMessages).set({ status, deliveredAt, failureReason }).where(eq(smsMessages.id, messageId)).execute();
+}
+
+export async function getSmsPreferences(customerId: number) {
+  return db.query.customerSmsPreferences.findFirst({ where: eq(customerSmsPreferences.customerId, customerId) });
+}
+
+export async function updateSmsPreferences(customerId: number, prefs: any) {
+  return db.update(customerSmsPreferences).set(prefs).where(eq(customerSmsPreferences.customerId, customerId)).execute();
+}
+
+export async function getSmsMessageHistory(customerId: number) {
+  return db.query.smsMessages.findMany({ where: eq(smsMessages.customerId, customerId) });
+}
+
+// ─── Email Campaigns ───────────────────────────────────────────────────────
+export async function createEmailTemplate(name: string, subject: string, htmlContent: string) {
+  return db.insert(emailTemplates).values({ name, subject, htmlContent }).execute();
+}
+
+export async function getEmailTemplates() {
+  return db.query.emailTemplates.findMany();
+}
+
+export async function createEmailCampaign(name: string, templateId: number, segmentId?: number) {
+  return db.insert(emailCampaigns).values({ name, templateId, segmentId, status: "draft" }).execute();
+}
+
+export async function getEmailCampaigns() {
+  return db.query.emailCampaigns.findMany();
+}
+
+export async function updateEmailCampaignStatus(campaignId: number, status: string, sentAt?: Date) {
+  return db.update(emailCampaigns).set({ status, sentAt }).where(eq(emailCampaigns.id, campaignId)).execute();
+}
+
+export async function addEmailCampaignRecipient(campaignId: number, customerId: number, email: string) {
+  return db.insert(emailCampaignRecipients).values({ campaignId, customerId, email, status: "pending" }).execute();
+}
+
+export async function updateEmailRecipientStatus(recipientId: number, status: string, openedAt?: Date, clickedAt?: Date) {
+  return db.update(emailCampaignRecipients).set({ status, openedAt, clickedAt }).where(eq(emailCampaignRecipients.id, recipientId)).execute();
+}
+
+export async function getEmailCampaignStats(campaignId: number) {
+  const recipients = await db.query.emailCampaignRecipients.findMany({ where: eq(emailCampaignRecipients.campaignId, campaignId) });
+  return {
+    total: recipients.length,
+    sent: recipients.filter((r) => r.sentAt).length,
+    opened: recipients.filter((r) => r.openedAt).length,
+    clicked: recipients.filter((r) => r.clickedAt).length,
+  };
+}
+
+// ─── Inventory Waste Tracking ───────────────────────────────────────────────
+export async function logWaste(ingredientId: number, quantity: string, unit: string, reason: string, cost: string, notes: string | null, loggedBy: number) {
+  return db.insert(wasteLogs).values({ ingredientId, quantity: new Decimal(quantity), unit, reason, cost: new Decimal(cost), notes, loggedBy }).execute();
+}
+
+export async function getWasteLogs(startDate: Date, endDate: Date) {
+  return db.query.wasteLogs.findMany({
+    where: and(gte(wasteLogs.loggedAt, startDate), lte(wasteLogs.loggedAt, endDate)),
+  });
+}
+
+export async function getWasteByReason(startDate: Date, endDate: Date) {
+  const logs = await getWasteLogs(startDate, endDate);
+  const grouped: Record<string, { count: number; totalCost: number }> = {};
+  logs.forEach((log) => {
+    if (!grouped[log.reason]) grouped[log.reason] = { count: 0, totalCost: 0 };
+    grouped[log.reason].count++;
+    grouped[log.reason].totalCost += Number(log.cost);
+  });
+  return Object.entries(grouped).map(([reason, data]) => ({ reason, ...data }));
+}
+
+export async function getTotalWasteCost(startDate: Date, endDate: Date) {
+  const logs = await getWasteLogs(startDate, endDate);
+  return logs.reduce((sum, log) => sum + Number(log.cost), 0);
+}
+
+export async function getWasteByIngredient(startDate: Date, endDate: Date) {
+  const logs = await getWasteLogs(startDate, endDate);
+  const grouped: Record<number, { ingredientId: number; count: number; totalCost: number }> = {};
+  logs.forEach((log) => {
+    if (!grouped[log.ingredientId]) grouped[log.ingredientId] = { ingredientId: log.ingredientId, count: 0, totalCost: 0 };
+    grouped[log.ingredientId].count++;
+    grouped[log.ingredientId].totalCost += Number(log.cost);
+  });
+  return Object.values(grouped);
+}

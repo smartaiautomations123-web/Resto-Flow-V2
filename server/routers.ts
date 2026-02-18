@@ -823,3 +823,36 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
   }),
 });
 export type AppRouter = typeof appRouter;
+
+  sms: router({
+    getSettings: protectedProcedure.query(() => db.getSmsSettings()),
+    updateSettings: protectedProcedure.input(z.object({ twilioAccountSid: z.string().optional(), twilioAuthToken: z.string().optional(), twilioPhoneNumber: z.string().optional(), isEnabled: z.boolean().optional() })).mutation(({ input }) => db.updateSmsSettings(input)),
+    sendMessage: protectedProcedure.input(z.object({ customerId: z.number().nullable(), phoneNumber: z.string(), message: z.string(), type: z.string() })).mutation(({ input }) => db.sendSmsMessage(input.customerId, input.phoneNumber, input.message, input.type)),
+  sms: router({
+    getSettings: protectedProcedure.query(() => db.getSmsSettings()),
+    updateSettings: protectedProcedure.input(z.object({ twilioAccountSid: z.string().optional(), twilioAuthToken: z.string().optional(), twilioPhoneNumber: z.string().optional(), isEnabled: z.boolean().optional() })).mutation(({ input }) => db.updateSmsSettings(input)),
+    sendMessage: protectedProcedure.input(z.object({ customerId: z.number().nullable(), phoneNumber: z.string(), message: z.string(), type: z.string() })).mutation(({ input }) => db.sendSmsMessage(input.customerId, input.phoneNumber, input.message, input.type)),
+    getPreferences: protectedProcedure.input(z.object({ customerId: z.number() })).query(({ input }) => db.getSmsPreferences(input.customerId)),
+    updatePreferences: protectedProcedure.input(z.object({ customerId: z.number(), optInReservations: z.boolean().optional(), optInWaitlist: z.boolean().optional(), optInOrderUpdates: z.boolean().optional(), optInPromotions: z.boolean().optional() })).mutation(({ input }) => db.updateSmsPreferences(input.customerId, input)),
+    getHistory: protectedProcedure.input(z.object({ customerId: z.number() })).query(({ input }) => db.getSmsMessageHistory(input.customerId)),
+  }),
+
+  emailCampaigns: router({
+    createTemplate: protectedProcedure.input(z.object({ name: z.string(), subject: z.string(), htmlContent: z.string() })).mutation(({ input }) => db.createEmailTemplate(input.name, input.subject, input.htmlContent)),
+    getTemplates: protectedProcedure.query(() => db.getEmailTemplates()),
+    createCampaign: protectedProcedure.input(z.object({ name: z.string(), templateId: z.number(), segmentId: z.number().optional() })).mutation(({ input }) => db.createEmailCampaign(input.name, input.templateId, input.segmentId)),
+    getCampaigns: protectedProcedure.query(() => db.getEmailCampaigns()),
+    updateStatus: protectedProcedure.input(z.object({ campaignId: z.number(), status: z.string(), sentAt: z.date().optional() })).mutation(({ input }) => db.updateEmailCampaignStatus(input.campaignId, input.status, input.sentAt)),
+    addRecipient: protectedProcedure.input(z.object({ campaignId: z.number(), customerId: z.number(), email: z.string() })).mutation(({ input }) => db.addEmailCampaignRecipient(input.campaignId, input.customerId, input.email)),
+    getStats: protectedProcedure.input(z.object({ campaignId: z.number() })).query(({ input }) => db.getEmailCampaignStats(input.campaignId)),
+  }),
+
+  waste: router({
+    logWaste: protectedProcedure.input(z.object({ ingredientId: z.number(), quantity: z.string(), unit: z.string(), reason: z.string(), cost: z.string(), notes: z.string().nullable(), loggedBy: z.number() })).mutation(({ input }) => db.logWaste(input.ingredientId, input.quantity, input.unit, input.reason, input.cost, input.notes, input.loggedBy)),
+    getLogs: protectedProcedure.input(z.object({ startDate: z.date(), endDate: z.date() })).query(({ input }) => db.getWasteLogs(input.startDate, input.endDate)),
+    getByReason: protectedProcedure.input(z.object({ startDate: z.date(), endDate: z.date() })).query(({ input }) => db.getWasteByReason(input.startDate, input.endDate)),
+    getTotalCost: protectedProcedure.input(z.object({ startDate: z.date(), endDate: z.date() })).query(({ input }) => db.getTotalWasteCost(input.startDate, input.endDate)),
+    getByIngredient: protectedProcedure.input(z.object({ startDate: z.date(), endDate: z.date() })).query(({ input }) => db.getWasteByIngredient(input.startDate, input.endDate)),
+  }),
+});
+

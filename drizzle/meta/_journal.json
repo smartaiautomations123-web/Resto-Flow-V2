@@ -71,6 +71,13 @@
       "when": 1771428109374,
       "tag": "0009_great_phalanx",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1771428467449,
+      "tag": "0010_aspiring_bulldozer",
+      "breakpoints": true
     }
   ]
 }

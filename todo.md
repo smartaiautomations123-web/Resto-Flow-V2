@@ -183,26 +183,36 @@
 
 ## LOWER PRIORITY - Advanced Features
 
-### 14. SMS Notifications
-- [ ] Integrate Twilio or similar SMS service
-- [ ] Send SMS for: reservation confirmations, waitlist ready, order ready
-- [ ] Allow customers to opt-in/out
-- [ ] Track SMS delivery status
-- [ ] Backend: Add SMS service integration
+### 14. SMS Notifications (Completed)
+- [x] Integrate Twilio or similar SMS service
+- [x] Send SMS for: reservation confirmations, waitlist ready, order ready
+- [x] Allow customers to opt-in/out
+- [x] Track SMS delivery status
+- [x] Backend: Add SMS service integration
+- [x] Add 7 database helpers for SMS operations
+- [x] Add 6 tRPC endpoints for SMS management
+- [x] Create SmsSettings page with Twilio configuration
 
-### 15. Email Campaigns
-- [ ] Build email template builder
-- [ ] Send campaigns to customer segments
-- [ ] Track opens, clicks, conversions
-- [ ] Schedule campaigns for future send
-- [ ] Backend: Integrate with email service (SendGrid, Mailgun, etc.)
+### 15. Email Campaigns (Completed)
+- [x] Build email template builder
+- [x] Send campaigns to customer segments
+- [x] Track opens, clicks, conversions
+- [x] Schedule campaigns for future send
+- [x] Backend: Integrate with email service (SendGrid, Mailgun, etc.)
+- [x] Add 8 database helpers for email campaigns
+- [x] Add 7 tRPC endpoints for email campaign management
+- [x] Create EmailCampaigns page with template and campaign UI
 
-### 16. Inventory Waste Tracking
-- [ ] Add waste log page
-- [ ] Track: ingredient, quantity, reason (spoilage, damage, theft, etc.)
-- [ ] Calculate waste cost impact
-- [ ] Report on waste trends
-- [ ] Backend: Add waste_logs table
+### 16. Inventory Waste Tracking (Completed)
+- [x] Add waste log page
+- [x] Track: ingredient, quantity, reason (spoilage, damage, theft, etc.)
+- [x] Calculate waste cost impact
+- [x] Report on waste trends
+- [x] Backend: Add waste_logs table
+- [x] Add 5 database helpers for waste tracking
+- [x] Add 5 tRPC endpoints for waste operations
+- [x] Create WasteTracking page with pie and bar charts
+- [x] Write tests for all three features (10 tests)
 
 ### 17. Multi-Location Support
 - [ ] Add locations table to schema
