@@ -44,6 +44,8 @@ const menuItems = [
   { icon: AlertCircle, label: "Void & Refunds", path: "/void-refunds" },
   { icon: ClipboardList, label: "Void Reasons", path: "/void-reasons" },
   { icon: CreditCard, label: "Payments", path: "/payments" },
+  { icon: AlertCircle, label: "Disputes", path: "/payment-disputes" },
+  { icon: LayoutDashboard, label: "Order Queue", path: "/order-queue" },
 
   // ─── Menu & Recipes ───
   { icon: UtensilsCrossed, label: "Menu", path: "/menu" },
@@ -82,6 +84,7 @@ const menuItems = [
   // ─── Settings & Admin ───
   { icon: Bell, label: "Notifications", path: "/notifications" },
   { icon: MapPin, label: "Locations", path: "/locations" },
+  { icon: CreditCard, label: "Location Pricing", path: "/location-pricing" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

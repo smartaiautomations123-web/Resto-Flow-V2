@@ -825,3 +825,90 @@ export const supplierPriceHistory = mysqlTable("supplier_price_history", {
   unit: varchar("unit", { length: 50 }),
   recordedAt: timestamp().defaultNow(),
 });
+
+// ─── Split Bills ─────────────────────────────────────────────────────
+export const splitBills = mysqlTable("split_bills", {
+  id: int("id").autoincrement().primaryKey(),
+  orderId: int("orderId").notNull(),
+  splitType: mysqlEnum("splitType", ["equal", "by_item", "by_amount", "by_percentage"]).notNull(),
+  totalParts: int("totalParts").default(2).notNull(),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export const splitBillParts = mysqlTable("split_bill_parts", {
+  id: int("id").autoincrement().primaryKey(),
+  splitBillId: int("splitBillId").notNull(),
+  partNumber: int("partNumber").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  tipAmount: decimal("tipAmount", { precision: 10, scale: 2 }).default("0"),
+  paymentMethod: mysqlEnum("paymentMethod", ["card", "cash", "online", "unpaid"]).default("unpaid"),
+  paymentStatus: mysqlEnum("paymentStatus", ["unpaid", "paid"]).default("unpaid"),
+  itemIds: json("itemIds"), // array of order item IDs for by_item splits
+  paidAt: timestamp("paidAt"),
+});
+
+// ─── Discounts & Promotions ─────────────────────────────────────────
+export const discounts = mysqlTable("discounts", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  type: mysqlEnum("type", ["percentage", "fixed", "bogo"]).notNull(),
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  minOrderAmount: decimal("minOrderAmount", { precision: 10, scale: 2 }).default("0"),
+  maxDiscountAmount: decimal("maxDiscountAmount", { precision: 10, scale: 2 }),
+  requiresApproval: boolean("requiresApproval").default(false),
+  approvalThreshold: decimal("approvalThreshold", { precision: 5, scale: 2 }).default("10"), // % threshold for manager approval
+  isActive: boolean("isActive").default(true).notNull(),
+  validFrom: timestamp("validFrom"),
+  validTo: timestamp("validTo"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export const orderDiscounts = mysqlTable("order_discounts", {
+  id: int("id").autoincrement().primaryKey(),
+  orderId: int("orderId").notNull(),
+  discountId: int("discountId"),
+  discountName: varchar("discountName", { length: 255 }).notNull(),
+  discountType: mysqlEnum("discountType", ["percentage", "fixed", "bogo", "manual"]).notNull(),
+  discountValue: decimal("discountValue", { precision: 10, scale: 2 }).notNull(),
+  discountAmount: decimal("discountAmount", { precision: 10, scale: 2 }).notNull(),
+  approvedBy: int("approvedBy"),
+  approvedAt: timestamp("approvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Payment Disputes ───────────────────────────────────────────────
+export const paymentDisputes = mysqlTable("payment_disputes", {
+  id: int("id").autoincrement().primaryKey(),
+  orderId: int("orderId").notNull(),
+  transactionId: int("transactionId"),
+  disputeType: mysqlEnum("disputeType", ["chargeback", "inquiry", "fraud", "duplicate", "other"]).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  status: mysqlEnum("status", ["open", "under_review", "won", "lost", "closed"]).default("open").notNull(),
+  reason: text("reason"),
+  evidence: text("evidence"),
+  resolvedBy: int("resolvedBy"),
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Location Menu Prices ───────────────────────────────────────────
+export const locationMenuPrices = mysqlTable("location_menu_prices", {
+  id: int("id").autoincrement().primaryKey(),
+  locationId: int("locationId").notNull(),
+  menuItemId: int("menuItemId").notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Table Merges ───────────────────────────────────────────────────
+export const tableMerges = mysqlTable("table_merges", {
+  id: int("id").autoincrement().primaryKey(),
+  primaryTableId: int("primaryTableId").notNull(),
+  mergedTableIds: json("mergedTableIds").notNull(), // array of table IDs
+  mergedBy: int("mergedBy"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  unmergedAt: timestamp("unmergedAt"),
+});

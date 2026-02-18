@@ -28,6 +28,11 @@ import {
   locations,
   combos, comboItems,
   recipeCostHistory,
+  splitBills, splitBillParts,
+  discounts, orderDiscounts,
+  paymentDisputes,
+  locationMenuPrices,
+  tableMerges,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -2370,4 +2375,284 @@ export async function generateSupplierScorecard(supplierId: number) {
   const performance = await getSupplierPerformance(supplierId);
   const latestPerf = performance[0];
   return { supplierId, onTimeRate: latestPerf?.onTimeRate || 0, qualityRating: latestPerf?.qualityRating || 0, averagePrice: latestPerf?.averagePrice || 0, totalOrders: latestPerf?.totalOrders || 0 };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// MODULE 5.1 — NEW FEATURES
+// ═══════════════════════════════════════════════════════════════════════
+
+// ─── Table Merges ───────────────────────────────────────────────────
+export async function mergeTables(primaryTableId: number, tableIds: number[], mergedBy?: number) {
+  const db = await getDb();
+  const [result] = await db.insert(tableMerges).values({
+    primaryTableId,
+    mergedTableIds: tableIds,
+    mergedBy,
+    isActive: true,
+  });
+  // Mark merged tables as occupied
+  for (const tid of tableIds) {
+    await db.update(tables).set({ status: "occupied" }).where(eq(tables.id, tid));
+  }
+  await db.update(tables).set({ status: "occupied" }).where(eq(tables.id, primaryTableId));
+  return { id: (result as any).insertId };
+}
+
+export async function unmergeTables(mergeId: number) {
+  const db = await getDb();
+  const [merge] = await db.select().from(tableMerges).where(and(eq(tableMerges.id, mergeId), eq(tableMerges.isActive, true)));
+  if (!merge) return null;
+  await db.update(tableMerges).set({ isActive: false, unmergedAt: new Date() }).where(eq(tableMerges.id, mergeId));
+  // Free merged tables
+  const mergedIds = merge.mergedTableIds as number[];
+  for (const tid of mergedIds) {
+    await db.update(tables).set({ status: "free" }).where(eq(tables.id, tid));
+  }
+  return merge;
+}
+
+export async function getActiveMerges() {
+  const db = await getDb();
+  return db.select().from(tableMerges).where(eq(tableMerges.isActive, true));
+}
+
+// ─── Split Bills ────────────────────────────────────────────────────
+export async function createSplitBill(orderId: number, splitType: string, totalParts: number, createdBy?: number) {
+  const db = await getDb();
+  const [result] = await db.insert(splitBills).values({
+    orderId,
+    splitType: splitType as any,
+    totalParts,
+    createdBy,
+  });
+  return { id: (result as any).insertId };
+}
+
+export async function addSplitBillPart(splitBillId: number, partNumber: number, amount: string, itemIds?: number[]) {
+  const db = await getDb();
+  const [result] = await db.insert(splitBillParts).values({
+    splitBillId,
+    partNumber,
+    amount,
+    itemIds: itemIds || null,
+  });
+  return { id: (result as any).insertId };
+}
+
+export async function paySplitBillPart(partId: number, paymentMethod: string, tipAmount?: string) {
+  const db = await getDb();
+  await db.update(splitBillParts).set({
+    paymentStatus: "paid" as any,
+    paymentMethod: paymentMethod as any,
+    tipAmount: tipAmount || "0",
+    paidAt: new Date(),
+  }).where(eq(splitBillParts.id, partId));
+  return { success: true };
+}
+
+export async function getSplitBillByOrder(orderId: number) {
+  const db = await getDb();
+  const bills = await db.select().from(splitBills).where(eq(splitBills.orderId, orderId));
+  if (bills.length === 0) return null;
+  const bill = bills[0];
+  const parts = await db.select().from(splitBillParts).where(eq(splitBillParts.splitBillId, bill.id));
+  return { ...bill, parts };
+}
+
+// ─── Discounts & Promotions ─────────────────────────────────────────
+export async function listDiscounts(activeOnly = true) {
+  const db = await getDb();
+  let query = db.select().from(discounts);
+  if (activeOnly) {
+    return query.where(eq(discounts.isActive, true));
+  }
+  return query;
+}
+
+export async function createDiscount(data: { name: string; type: string; value: string; minOrderAmount?: string; maxDiscountAmount?: string; requiresApproval?: boolean; approvalThreshold?: string; validFrom?: Date; validTo?: Date }) {
+  const db = await getDb();
+  const [result] = await db.insert(discounts).values({
+    name: data.name,
+    type: data.type as any,
+    value: data.value,
+    minOrderAmount: data.minOrderAmount || "0",
+    maxDiscountAmount: data.maxDiscountAmount || null,
+    requiresApproval: data.requiresApproval || false,
+    approvalThreshold: data.approvalThreshold || "10",
+    validFrom: data.validFrom || null,
+    validTo: data.validTo || null,
+  });
+  return { id: (result as any).insertId };
+}
+
+export async function applyDiscountToOrder(orderId: number, discountName: string, discountType: string, discountValue: string, discountAmount: string, discountId?: number, approvedBy?: number) {
+  const db = await getDb();
+  const [result] = await db.insert(orderDiscounts).values({
+    orderId,
+    discountId: discountId || null,
+    discountName,
+    discountType: discountType as any,
+    discountValue,
+    discountAmount,
+    approvedBy: approvedBy || null,
+    approvedAt: approvedBy ? new Date() : null,
+  });
+  // Update order total
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+  if (order) {
+    const currentDiscount = parseFloat(order.discountAmount || "0");
+    const newDiscount = currentDiscount + parseFloat(discountAmount);
+    const newTotal = parseFloat(order.subtotal || "0") - newDiscount + parseFloat(order.taxAmount || "0") + parseFloat(order.serviceCharge || "0");
+    await db.update(orders).set({ discountAmount: newDiscount.toFixed(2), total: newTotal.toFixed(2) }).where(eq(orders.id, orderId));
+  }
+  return { id: (result as any).insertId };
+}
+
+export async function getOrderDiscounts(orderId: number) {
+  const db = await getDb();
+  return db.select().from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId));
+}
+
+// ─── Tips ───────────────────────────────────────────────────────────
+export async function addTipToOrder(orderId: number, tipAmount: string) {
+  const db = await getDb();
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+  if (!order) return null;
+  const newTotal = parseFloat(order.total || "0") - parseFloat(order.tipAmount || "0") + parseFloat(tipAmount);
+  await db.update(orders).set({ tipAmount, total: newTotal.toFixed(2) }).where(eq(orders.id, orderId));
+  return { success: true, newTotal: newTotal.toFixed(2) };
+}
+
+// ─── Payment Disputes ───────────────────────────────────────────────
+export async function createPaymentDispute(data: { orderId: number; transactionId?: number; disputeType: string; amount: string; reason?: string }) {
+  const db = await getDb();
+  const [result] = await db.insert(paymentDisputes).values({
+    orderId: data.orderId,
+    transactionId: data.transactionId || null,
+    disputeType: data.disputeType as any,
+    amount: data.amount,
+    reason: data.reason || null,
+  });
+  return { id: (result as any).insertId };
+}
+
+export async function listPaymentDisputes(status?: string) {
+  const db = await getDb();
+  if (status) {
+    return db.select().from(paymentDisputes).where(eq(paymentDisputes.status, status as any)).orderBy(desc(paymentDisputes.createdAt));
+  }
+  return db.select().from(paymentDisputes).orderBy(desc(paymentDisputes.createdAt));
+}
+
+export async function updatePaymentDispute(id: number, data: { status?: string; evidence?: string; resolvedBy?: number }) {
+  const db = await getDb();
+  const updates: any = {};
+  if (data.status) updates.status = data.status;
+  if (data.evidence) updates.evidence = data.evidence;
+  if (data.resolvedBy) { updates.resolvedBy = data.resolvedBy; updates.resolvedAt = new Date(); }
+  await db.update(paymentDisputes).set(updates).where(eq(paymentDisputes.id, id));
+  return { success: true };
+}
+
+// ─── Location Menu Prices ───────────────────────────────────────────
+export async function setLocationMenuPrice(locationId: number, menuItemId: number, price: string) {
+  const db = await getDb();
+  // Check if exists
+  const existing = await db.select().from(locationMenuPrices).where(and(eq(locationMenuPrices.locationId, locationId), eq(locationMenuPrices.menuItemId, menuItemId)));
+  if (existing.length > 0) {
+    await db.update(locationMenuPrices).set({ price, isActive: true }).where(eq(locationMenuPrices.id, existing[0].id));
+    return { id: existing[0].id };
+  }
+  const [result] = await db.insert(locationMenuPrices).values({ locationId, menuItemId, price });
+  return { id: (result as any).insertId };
+}
+
+export async function getLocationMenuPrices(locationId: number) {
+  const db = await getDb();
+  return db.select().from(locationMenuPrices).where(and(eq(locationMenuPrices.locationId, locationId), eq(locationMenuPrices.isActive, true)));
+}
+
+export async function deleteLocationMenuPrice(id: number) {
+  const db = await getDb();
+  await db.update(locationMenuPrices).set({ isActive: false }).where(eq(locationMenuPrices.id, id));
+  return { success: true };
+}
+
+// ─── Hourly Sales Trend ─────────────────────────────────────────────
+export async function getHourlySalesTrend(date?: string) {
+  const db = await getDb();
+  const targetDate = date || new Date().toISOString().split("T")[0];
+  const startOfDay = new Date(targetDate + "T00:00:00Z");
+  const endOfDay = new Date(targetDate + "T23:59:59Z");
+  const dayOrders = await db.select().from(orders).where(
+    and(
+      gte(orders.createdAt, startOfDay),
+      lte(orders.createdAt, endOfDay),
+      ne(orders.status, "cancelled"),
+      ne(orders.status, "voided")
+    )
+  );
+  // Group by hour
+  const hourly: { hour: number; orders: number; revenue: number }[] = [];
+  for (let h = 0; h < 24; h++) {
+    const hourOrders = dayOrders.filter(o => new Date(o.createdAt).getUTCHours() === h);
+    hourly.push({
+      hour: h,
+      orders: hourOrders.length,
+      revenue: hourOrders.reduce((sum, o) => sum + parseFloat(o.total || "0"), 0),
+    });
+  }
+  return hourly;
+}
+
+// ─── Staff Sales Performance ────────────────────────────────────────
+export async function getStaffSalesPerformance(startDate?: string, endDate?: string) {
+  const db = await getDb();
+  const conditions = [ne(orders.status, "cancelled"), ne(orders.status, "voided")];
+  if (startDate) conditions.push(gte(orders.createdAt, new Date(startDate)));
+  if (endDate) conditions.push(lte(orders.createdAt, new Date(endDate)));
+  
+  const allOrders = await db.select().from(orders).where(and(...conditions));
+  const staffList = await db.select().from(staff);
+  const staffMap = new Map(staffList.map(s => [s.id, s]));
+  
+  // Group by staffId
+  const byStaff = new Map<number, { orders: number; revenue: number; avgCheck: number }>();
+  for (const o of allOrders) {
+    if (!o.staffId) continue;
+    const curr = byStaff.get(o.staffId) || { orders: 0, revenue: 0, avgCheck: 0 };
+    curr.orders++;
+    curr.revenue += parseFloat(o.total || "0");
+    byStaff.set(o.staffId, curr);
+  }
+  
+  return Array.from(byStaff.entries()).map(([staffId, data]) => ({
+    staffId,
+    staffName: staffMap.get(staffId)?.name || "Unknown",
+    role: staffMap.get(staffId)?.role || "Unknown",
+    totalOrders: data.orders,
+    totalRevenue: data.revenue.toFixed(2),
+    avgCheck: (data.revenue / data.orders).toFixed(2),
+  })).sort((a, b) => parseFloat(b.totalRevenue) - parseFloat(a.totalRevenue));
+}
+
+// ─── Unified Order Queue ────────────────────────────────────────────
+export async function getUnifiedOrderQueue() {
+  const db = await getDb();
+  const activeOrders = await db.select().from(orders).where(
+    and(
+      ne(orders.status, "completed"),
+      ne(orders.status, "cancelled"),
+      ne(orders.status, "voided")
+    )
+  ).orderBy(orders.createdAt);
+  
+  // Get items for each order
+  const result = [];
+  for (const order of activeOrders) {
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+    result.push({ ...order, items, channel: order.type });
+  }
+  return result;
 }

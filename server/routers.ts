@@ -874,5 +874,42 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
     getPriceHistory: protectedProcedure.input(z.object({ supplierId: z.number(), ingredientId: z.number() })).query(({ input }) => db.getSupplierPriceHistory(input.supplierId, input.ingredientId)),
     generateScorecard: protectedProcedure.input(z.object({ supplierId: z.number() })).query(({ input }) => db.generateSupplierScorecard(input.supplierId)),
   }),
+
+  // ─── Module 5.1 New Features ────────────────────────────────────────
+  tableMerges: router({
+    merge: protectedProcedure.input(z.object({ primaryTableId: z.number(), tableIds: z.array(z.number()) })).mutation(({ input, ctx }) => db.mergeTables(input.primaryTableId, input.tableIds, ctx.user?.id)),
+    unmerge: protectedProcedure.input(z.object({ mergeId: z.number() })).mutation(({ input }) => db.unmergeTables(input.mergeId)),
+    getActive: protectedProcedure.query(() => db.getActiveMerges()),
+  }),
+  splitBills: router({
+    create: protectedProcedure.input(z.object({ orderId: z.number(), splitType: z.enum(["equal", "by_item", "by_amount", "by_percentage"]), totalParts: z.number() })).mutation(({ input, ctx }) => db.createSplitBill(input.orderId, input.splitType, input.totalParts, ctx.user?.id)),
+    addPart: protectedProcedure.input(z.object({ splitBillId: z.number(), partNumber: z.number(), amount: z.string(), itemIds: z.array(z.number()).optional() })).mutation(({ input }) => db.addSplitBillPart(input.splitBillId, input.partNumber, input.amount, input.itemIds)),
+    payPart: protectedProcedure.input(z.object({ partId: z.number(), paymentMethod: z.enum(["card", "cash", "online"]), tipAmount: z.string().optional() })).mutation(({ input }) => db.paySplitBillPart(input.partId, input.paymentMethod, input.tipAmount)),
+    getByOrder: protectedProcedure.input(z.object({ orderId: z.number() })).query(({ input }) => db.getSplitBillByOrder(input.orderId)),
+  }),
+  discountsManager: router({
+    list: protectedProcedure.input(z.object({ activeOnly: z.boolean().optional() }).optional()).query(({ input }) => db.listDiscounts(input?.activeOnly ?? true)),
+    create: protectedProcedure.input(z.object({ name: z.string(), type: z.enum(["percentage", "fixed", "bogo"]), value: z.string(), minOrderAmount: z.string().optional(), maxDiscountAmount: z.string().optional(), requiresApproval: z.boolean().optional(), approvalThreshold: z.string().optional(), validFrom: z.date().optional(), validTo: z.date().optional() })).mutation(({ input }) => db.createDiscount(input)),
+    applyToOrder: protectedProcedure.input(z.object({ orderId: z.number(), discountName: z.string(), discountType: z.enum(["percentage", "fixed", "bogo", "manual"]), discountValue: z.string(), discountAmount: z.string(), discountId: z.number().optional(), approvedBy: z.number().optional() })).mutation(({ input }) => db.applyDiscountToOrder(input.orderId, input.discountName, input.discountType, input.discountValue, input.discountAmount, input.discountId, input.approvedBy)),
+    getOrderDiscounts: protectedProcedure.input(z.object({ orderId: z.number() })).query(({ input }) => db.getOrderDiscounts(input.orderId)),
+  }),
+  tips: router({
+    addToOrder: protectedProcedure.input(z.object({ orderId: z.number(), tipAmount: z.string() })).mutation(({ input }) => db.addTipToOrder(input.orderId, input.tipAmount)),
+  }),
+  paymentDisputes: router({
+    create: protectedProcedure.input(z.object({ orderId: z.number(), transactionId: z.number().optional(), disputeType: z.enum(["chargeback", "inquiry", "fraud", "duplicate", "other"]), amount: z.string(), reason: z.string().optional() })).mutation(({ input }) => db.createPaymentDispute(input)),
+    list: protectedProcedure.input(z.object({ status: z.string().optional() }).optional()).query(({ input }) => db.listPaymentDisputes(input?.status)),
+    update: protectedProcedure.input(z.object({ id: z.number(), status: z.string().optional(), evidence: z.string().optional(), resolvedBy: z.number().optional() })).mutation(({ input }) => db.updatePaymentDispute(input.id, input)),
+  }),
+  locationPrices: router({
+    set: protectedProcedure.input(z.object({ locationId: z.number(), menuItemId: z.number(), price: z.string() })).mutation(({ input }) => db.setLocationMenuPrice(input.locationId, input.menuItemId, input.price)),
+    getByLocation: protectedProcedure.input(z.object({ locationId: z.number() })).query(({ input }) => db.getLocationMenuPrices(input.locationId)),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteLocationMenuPrice(input.id)),
+  }),
+  salesAnalytics: router({
+    hourlySalesTrend: protectedProcedure.input(z.object({ date: z.string().optional() }).optional()).query(({ input }) => db.getHourlySalesTrend(input?.date)),
+    staffPerformance: protectedProcedure.input(z.object({ startDate: z.string().optional(), endDate: z.string().optional() }).optional()).query(({ input }) => db.getStaffSalesPerformance(input?.startDate, input?.endDate)),
+    unifiedQueue: protectedProcedure.query(() => db.getUnifiedOrderQueue()),
+  }),
 });
 export type AppRouter = typeof appRouter;

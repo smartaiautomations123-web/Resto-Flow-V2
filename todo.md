@@ -366,3 +366,21 @@
 - [x] Rebuild todo2.md with accurate PRD feature audit
 - [x] Add missing routes for unrouted pages
 - [x] Reorganise sidebar navigation to group related pages logically
+
+## Module 5.1 - POS & Order Management (Completed)
+- [x] Merge tables functionality
+- [x] Split bills by item/customer/percentage
+- [x] Discount and promotion application (manager approval for >10%)
+- [x] Tip handling (cash, card, percentage-based)
+- [x] KDS: Item grouping by prep station
+- [x] KDS: Audio alerts for new orders
+- [x] KDS: Reprint lost/damaged order tickets
+- [x] Payment dispute logging
+- [x] Per-location price override capability
+- [x] Hourly sales trend report
+- [x] Staff sales performance report
+- [x] Unified order queue view (all channels in one screen)
+- [x] Payment disputes page with resolution workflow
+- [x] Location pricing page for per-location menu price overrides
+- [x] Unified order queue page showing all channels
+- [x] 13 vitest tests passing for new features

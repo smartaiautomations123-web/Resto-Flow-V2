@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useState, useMemo } from "react";
-import { BarChart3, DollarSign, TrendingUp, Users, ShoppingCart, PieChart } from "lucide-react";
+import { DollarSign, TrendingUp, Users, ShoppingCart, Clock, Award, Download } from "lucide-react";
 
 export default function Reports() {
   const [dateRange, setDateRange] = useState(() => {
@@ -14,6 +15,7 @@ export default function Reports() {
     weekAgo.setDate(now.getDate() - 7);
     return { from: weekAgo.toISOString().split("T")[0], to: now.toISOString().split("T")[0] };
   });
+  const [hourlyDate, setHourlyDate] = useState(() => new Date().toISOString().split("T")[0]);
 
   const stableDateRange = useMemo(() => dateRange, [dateRange.from, dateRange.to]);
 
@@ -23,10 +25,26 @@ export default function Reports() {
   const { data: byCategory } = trpc.reports.salesByCategory.useQuery({ dateFrom: stableDateRange.from, dateTo: stableDateRange.to });
   const { data: labourCosts } = trpc.reports.labourCosts.useQuery({ dateFrom: stableDateRange.from, dateTo: stableDateRange.to });
   const { data: byType } = trpc.reports.ordersByType.useQuery({ dateFrom: stableDateRange.from, dateTo: stableDateRange.to });
+  const { data: hourlyTrend } = trpc.salesAnalytics.hourlySalesTrend.useQuery({ date: hourlyDate });
+  const { data: staffPerf } = trpc.salesAnalytics.staffPerformance.useQuery({ startDate: stableDateRange.from, endDate: stableDateRange.to });
 
-  const totalLabour = labourCosts?.reduce((s, l) => s + Number(l.totalHours) * Number(l.hourlyRate || 0), 0) || 0;
+  const totalLabour = labourCosts?.reduce((s: number, l: any) => s + Number(l.totalHours) * Number(l.hourlyRate || 0), 0) || 0;
   const revenue = Number(stats?.totalRevenue || 0);
   const labourPct = revenue > 0 ? ((totalLabour / revenue) * 100).toFixed(1) : "0";
+
+  // Export CSV helper
+  const exportCSV = (data: any[], filename: string) => {
+    if (!data || data.length === 0) return;
+    const headers = Object.keys(data[0]);
+    const csv = [headers.join(","), ...data.map(row => headers.map(h => `"${row[h] ?? ""}"`).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
@@ -46,10 +64,7 @@ export default function Reports() {
         <Card className="bg-card border-border">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold mt-1">${revenue.toFixed(2)}</p>
-              </div>
+              <div><p className="text-sm text-muted-foreground">Total Revenue</p><p className="text-2xl font-bold mt-1">${revenue.toFixed(2)}</p></div>
               <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><DollarSign className="h-6 w-6 text-primary" /></div>
             </div>
           </CardContent>
@@ -57,10 +72,7 @@ export default function Reports() {
         <Card className="bg-card border-border">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Orders</p>
-                <p className="text-2xl font-bold mt-1">{stats?.totalOrders || 0}</p>
-              </div>
+              <div><p className="text-sm text-muted-foreground">Total Orders</p><p className="text-2xl font-bold mt-1">{stats?.totalOrders || 0}</p></div>
               <div className="h-12 w-12 rounded-xl bg-chart-2/10 flex items-center justify-center"><ShoppingCart className="h-6 w-6 text-chart-2" /></div>
             </div>
           </CardContent>
@@ -68,44 +80,44 @@ export default function Reports() {
         <Card className="bg-card border-border">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Avg. Ticket</p>
-                <p className="text-2xl font-bold mt-1">${Number(stats?.avgTicket || 0).toFixed(2)}</p>
-              </div>
-              <div className="h-12 w-12 rounded-xl bg-success/10 flex items-center justify-center"><TrendingUp className="h-6 w-6 text-success" /></div>
+              <div><p className="text-sm text-muted-foreground">Avg. Ticket</p><p className="text-2xl font-bold mt-1">${Number(stats?.avgTicket || 0).toFixed(2)}</p></div>
+              <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center"><TrendingUp className="h-6 w-6 text-green-500" /></div>
             </div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Labour Cost %</p>
-                <p className="text-2xl font-bold mt-1">{labourPct}%</p>
-              </div>
-              <div className="h-12 w-12 rounded-xl bg-warning/10 flex items-center justify-center"><Users className="h-6 w-6 text-warning" /></div>
+              <div><p className="text-sm text-muted-foreground">Labour Cost %</p><p className="text-2xl font-bold mt-1">{labourPct}%</p></div>
+              <div className="h-12 w-12 rounded-xl bg-yellow-500/10 flex items-center justify-center"><Users className="h-6 w-6 text-yellow-500" /></div>
             </div>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="sales">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="sales">Sales Trend</TabsTrigger>
+          <TabsTrigger value="hourly">Hourly Trend</TabsTrigger>
           <TabsTrigger value="items">Top Items</TabsTrigger>
           <TabsTrigger value="categories">By Category</TabsTrigger>
           <TabsTrigger value="channels">By Channel</TabsTrigger>
+          <TabsTrigger value="staff">Staff Performance</TabsTrigger>
           <TabsTrigger value="labour">Labour</TabsTrigger>
         </TabsList>
 
+        {/* Daily Sales */}
         <TabsContent value="sales" className="mt-4">
           <Card className="bg-card border-border">
-            <CardHeader><CardTitle className="text-lg">Daily Revenue</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">Daily Revenue</CardTitle>
+              {dailySales && <Button variant="outline" size="sm" onClick={() => exportCSV(dailySales, "daily-sales")}><Download className="h-3 w-3 mr-1" />CSV</Button>}
+            </CardHeader>
             <CardContent>
               {dailySales && dailySales.length > 0 ? (
                 <div className="flex items-end gap-1 h-52">
-                  {dailySales.map((day, i) => {
-                    const maxRev = Math.max(...dailySales.map(d => Number(d.revenue)));
+                  {dailySales.map((day: any, i: number) => {
+                    const maxRev = Math.max(...dailySales.map((d: any) => Number(d.revenue)));
                     const height = maxRev > 0 ? (Number(day.revenue) / maxRev) * 100 : 0;
                     return (
                       <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -121,13 +133,64 @@ export default function Reports() {
           </Card>
         </TabsContent>
 
+        {/* Hourly Sales Trend — NEW */}
+        <TabsContent value="hourly" className="mt-4">
+          <Card className="bg-card border-border">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2"><Clock className="h-5 w-5" /> Hourly Sales Trend</CardTitle>
+              <div className="flex gap-2 items-center">
+                <Input type="date" value={hourlyDate} onChange={e => setHourlyDate(e.target.value)} className="w-40" />
+                {hourlyTrend && <Button variant="outline" size="sm" onClick={() => exportCSV(hourlyTrend, "hourly-sales")}><Download className="h-3 w-3 mr-1" />CSV</Button>}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {hourlyTrend && hourlyTrend.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="flex items-end gap-0.5 h-48">
+                    {hourlyTrend.map((h: any) => {
+                      const maxRev = Math.max(...hourlyTrend.map((x: any) => x.revenue));
+                      const height = maxRev > 0 ? (h.revenue / maxRev) * 100 : 0;
+                      const isActive = h.orders > 0;
+                      return (
+                        <div key={h.hour} className="flex-1 flex flex-col items-center gap-1" title={`${h.hour}:00 — ${h.orders} orders, $${h.revenue.toFixed(2)}`}>
+                          <span className="text-[10px] text-muted-foreground">{h.orders > 0 ? h.orders : ""}</span>
+                          <div className={`w-full rounded-t-sm transition-all ${isActive ? "bg-primary/80 hover:bg-primary" : "bg-secondary"}`} style={{ height: `${Math.max(height, 2)}%` }} />
+                          <span className="text-[10px] text-muted-foreground">{h.hour}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 pt-2 border-t border-border">
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">Peak Hour</p>
+                      <p className="text-lg font-bold">{hourlyTrend.reduce((max: any, h: any) => h.revenue > max.revenue ? h : max, hourlyTrend[0]).hour}:00</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">Total Orders</p>
+                      <p className="text-lg font-bold">{hourlyTrend.reduce((s: number, h: any) => s + h.orders, 0)}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">Total Revenue</p>
+                      <p className="text-lg font-bold text-primary">${hourlyTrend.reduce((s: number, h: any) => s + h.revenue, 0).toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : <p className="text-muted-foreground text-sm text-center py-12">No hourly data available.</p>}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Top Items */}
         <TabsContent value="items" className="mt-4">
           <Card className="bg-card border-border">
-            <CardHeader><CardTitle className="text-lg">Top Selling Items</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">Top Selling Items</CardTitle>
+              {topItems && <Button variant="outline" size="sm" onClick={() => exportCSV(topItems, "top-items")}><Download className="h-3 w-3 mr-1" />CSV</Button>}
+            </CardHeader>
             <CardContent>
               {topItems && topItems.length > 0 ? (
                 <div className="space-y-3">
-                  {topItems.map((item, i) => {
+                  {topItems.map((item: any, i: number) => {
                     const maxQty = Number(topItems[0].totalQty);
                     const pct = maxQty > 0 ? (Number(item.totalQty) / maxQty) * 100 : 0;
                     return (
@@ -148,14 +211,15 @@ export default function Reports() {
           </Card>
         </TabsContent>
 
+        {/* By Category */}
         <TabsContent value="categories" className="mt-4">
           <Card className="bg-card border-border">
             <CardHeader><CardTitle className="text-lg">Sales by Category</CardTitle></CardHeader>
             <CardContent>
               {byCategory && byCategory.length > 0 ? (
                 <div className="space-y-3">
-                  {byCategory.map((cat, i) => {
-                    const totalCatSales = byCategory.reduce((s, c) => s + Number(c.totalSales), 0);
+                  {byCategory.map((cat: any, i: number) => {
+                    const totalCatSales = byCategory.reduce((s: number, c: any) => s + Number(c.totalSales), 0);
                     const pct = totalCatSales > 0 ? (Number(cat.totalSales) / totalCatSales) * 100 : 0;
                     return (
                       <div key={i}>
@@ -175,13 +239,14 @@ export default function Reports() {
           </Card>
         </TabsContent>
 
+        {/* By Channel */}
         <TabsContent value="channels" className="mt-4">
           <Card className="bg-card border-border">
             <CardHeader><CardTitle className="text-lg">Orders by Channel</CardTitle></CardHeader>
             <CardContent>
               {byType && byType.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {byType.map((t, i) => (
+                  {byType.map((t: any, i: number) => (
                     <div key={i} className="p-4 rounded-xl bg-secondary/50 text-center">
                       <p className="text-2xl font-bold">{t.count}</p>
                       <p className="text-sm text-muted-foreground capitalize mt-1">{t.type.replace("_", " ")}</p>
@@ -194,9 +259,58 @@ export default function Reports() {
           </Card>
         </TabsContent>
 
+        {/* Staff Sales Performance — NEW */}
+        <TabsContent value="staff" className="mt-4">
+          <Card className="bg-card border-border">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2"><Award className="h-5 w-5" /> Staff Sales Performance</CardTitle>
+              {staffPerf && <Button variant="outline" size="sm" onClick={() => exportCSV(staffPerf, "staff-performance")}><Download className="h-3 w-3 mr-1" />CSV</Button>}
+            </CardHeader>
+            <CardContent>
+              {staffPerf && staffPerf.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">Rank</th>
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">Staff</th>
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">Role</th>
+                        <th className="text-right p-3 text-sm font-medium text-muted-foreground">Orders</th>
+                        <th className="text-right p-3 text-sm font-medium text-muted-foreground">Revenue</th>
+                        <th className="text-right p-3 text-sm font-medium text-muted-foreground">Avg Check</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {staffPerf.map((s: any, i: number) => (
+                        <tr key={i} className="border-b border-border/50 hover:bg-secondary/30">
+                          <td className="p-3">
+                            {i === 0 ? <Badge className="bg-yellow-500/20 text-yellow-400">1st</Badge> :
+                             i === 1 ? <Badge className="bg-gray-400/20 text-gray-300">2nd</Badge> :
+                             i === 2 ? <Badge className="bg-orange-500/20 text-orange-400">3rd</Badge> :
+                             <span className="text-sm text-muted-foreground">{i + 1}</span>}
+                          </td>
+                          <td className="p-3 font-medium text-sm">{s.staffName}</td>
+                          <td className="p-3 text-sm text-muted-foreground capitalize">{s.role}</td>
+                          <td className="p-3 text-sm text-right">{s.totalOrders}</td>
+                          <td className="p-3 text-sm text-right font-medium text-primary">${Number(s.totalRevenue).toFixed(2)}</td>
+                          <td className="p-3 text-sm text-right">${Number(s.avgCheck).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="text-muted-foreground text-sm text-center py-12">No staff performance data available.</p>}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Labour */}
         <TabsContent value="labour" className="mt-4">
           <Card className="bg-card border-border">
-            <CardHeader><CardTitle className="text-lg">Labour Costs</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">Labour Costs</CardTitle>
+              {labourCosts && <Button variant="outline" size="sm" onClick={() => exportCSV(labourCosts, "labour-costs")}><Download className="h-3 w-3 mr-1" />CSV</Button>}
+            </CardHeader>
             <CardContent>
               {labourCosts && labourCosts.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -210,7 +324,7 @@ export default function Reports() {
                       </tr>
                     </thead>
                     <tbody>
-                      {labourCosts.map((l, i) => (
+                      {labourCosts.map((l: any, i: number) => (
                         <tr key={i} className="border-b border-border/50">
                           <td className="p-3 font-medium text-sm">{l.staffName}</td>
                           <td className="p-3 text-sm">{Number(l.totalHours).toFixed(1)}h</td>
@@ -220,7 +334,7 @@ export default function Reports() {
                       ))}
                       <tr className="font-bold">
                         <td className="p-3">Total</td>
-                        <td className="p-3">{labourCosts.reduce((s, l) => s + Number(l.totalHours), 0).toFixed(1)}h</td>
+                        <td className="p-3">{labourCosts.reduce((s: number, l: any) => s + Number(l.totalHours), 0).toFixed(1)}h</td>
                         <td className="p-3"></td>
                         <td className="p-3 text-primary">${totalLabour.toFixed(2)}</td>
                       </tr>

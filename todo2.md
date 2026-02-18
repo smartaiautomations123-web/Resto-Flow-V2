@@ -12,37 +12,37 @@
 ### 5.1.1A — Order Taking & Management
 - [x] Multi-device support (web-based, works on iPad/tablet/desktop)
 - [x] Table management (seat occupancy, status tracking)
-- [ ] Merge tables functionality
+- [x] Merge tables functionality
 - [x] Quick order buttons for common items
 - [x] Modifiers/customizations (e.g., "no onion", "extra spice")
 - [x] Open checks and order history
 - [x] Send to Kitchen Display System (KDS) with one-touch
-- [ ] Split bills by item/customer/percentage
-- [ ] Discount and promotion application (manager approval for >10%)
+- [x] Split bills by item/customer/percentage
+- [x] Discount and promotion application (manager approval for >10%)
 - [x] Void/return item capability with reason logging
-- [ ] Tip handling (cash, card, percentage-based)
+- [x] Tip handling (cash, card, percentage-based)
 
 ### 5.1.1B — Kitchen Display System (KDS)
 - [x] Real-time order display on screen/tablet
 - [x] Order prioritization (FIFO, urgent flags)
-- [ ] Item grouping by prep station
+- [x] Item grouping by prep station
 - [x] Estimated cook time display
-- [ ] Audio alerts for new orders
+- [x] Audio alerts for new orders
 - [x] Ability to mark items as ready/completed
 - [x] Show customer special requests
-- [ ] Reprint lost/damaged order tickets
+- [x] Reprint lost/damaged order tickets
 - [x] Display all active orders at a glance
 
 ### 5.1.1C — Payment Processing
 - [x] Cash payments
 - [~] Card payments (payment_transactions table + basic Stripe schema, but Stripe not fully wired)
 - [ ] Digital wallets (Apple Pay, Google Pay)
-- [ ] Split payments (multiple cards)
+- [x] Split payments (multiple cards) — via split bill feature
 - [ ] Contactless & tap payments
 - [x] Receipt printing (thermal printer format)
 - [x] Email/SMS receipts
 - [x] Refund processing
-- [ ] Payment dispute logging
+- [x] Payment dispute logging
 
 ### 5.1.1D — Menu Management
 - [x] Create/edit menu items
@@ -54,16 +54,16 @@
 - [x] Availability scheduling (via dayparts)
 - [x] Recipe ingredient linking
 - [x] Combo/bundle creation — combos table + ComboBuilder page
-- [ ] Price override capability (per-location)
+- [x] Price override capability (per-location)
 
 ### 5.1.1E — Reporting
 - [x] Daily sales summary (Z-Reports)
 - [x] Item-level sales (which dishes sold most)
 - [x] Category-level breakdown
 - [x] Payment method breakdown (cash vs card)
-- [ ] Hourly sales trend
+- [x] Hourly sales trend
 - [x] Void/cancellation logs with reasons
-- [ ] Staff sales performance
+- [x] Staff sales performance
 - [x] Export to CSV/PDF
 
 ### 5.1.2 — Technical Requirements
@@ -80,7 +80,7 @@
 - [x] Takeaway orders
 - [x] Delivery orders (internal fulfillment)
 - [ ] Third-party aggregators (Uber Eats, DoorDash, Deliveroo)
-- [ ] Unified order queue view (all channels in one screen)
+- [x] Unified order queue view (all channels in one screen)
 
 ---
 

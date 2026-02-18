@@ -42,6 +42,9 @@ import { SmsSettings } from "@/pages/SmsSettings";
 import { EmailCampaigns } from "@/pages/EmailCampaigns";
 import NotificationCenter from "./pages/NotificationCenter";
 import LocationManagement from "./pages/LocationManagement";
+import PaymentDisputes from "./pages/PaymentDisputes";
+import LocationPricing from "./pages/LocationPricing";
+import UnifiedOrderQueue from "./pages/UnifiedOrderQueue";
 
 function Router() {
   return (
@@ -61,6 +64,8 @@ function Router() {
       <Route path="/void-refunds" component={() => <DashboardLayout><VoidRefunds /></DashboardLayout>} />
       <Route path="/void-reasons" component={() => <DashboardLayout><VoidReasonAnalytics /></DashboardLayout>} />
       <Route path="/payments" component={() => <DashboardLayout><PaymentManagement /></DashboardLayout>} />
+      <Route path="/payment-disputes" component={() => <DashboardLayout><PaymentDisputes /></DashboardLayout>} />
+      <Route path="/order-queue" component={() => <DashboardLayout><UnifiedOrderQueue /></DashboardLayout>} />
 
       {/* ─── Menu & Recipes ────────────────────────────────── */}
       <Route path="/menu" component={() => <DashboardLayout><MenuManagement /></DashboardLayout>} />
@@ -100,6 +105,7 @@ function Router() {
       {/* ─── Settings & Admin ──────────────────────────────── */}
       <Route path="/notifications" component={() => <DashboardLayout><NotificationCenter /></DashboardLayout>} />
       <Route path="/locations" component={() => <DashboardLayout><LocationManagement /></DashboardLayout>} />
+      <Route path="/location-pricing" component={() => <DashboardLayout><LocationPricing /></DashboardLayout>} />
 
       {/* ─── Fallback ──────────────────────────────────────── */}
       <Route path="/404" component={NotFound} />
