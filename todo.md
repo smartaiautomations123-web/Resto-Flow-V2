@@ -305,3 +305,17 @@
 - [x] Implement approval workflow (admin only)
 - [x] Add audit trail display showing all void/refund history
 - [x] Write tests for void/refund procedures (6 tests, all passing)
+
+
+## Customer Order History Detail View (Completed)
+- [x] Add DB helper to get customer with complete order history
+- [x] Add DB helper to get loyalty points history
+- [x] Build tRPC routers for customer detail endpoint
+- [x] Create CustomerDetail page component
+- [x] Display customer profile (name, phone, email, birthday, notes)
+- [x] Display complete order history with dates, items, totals
+- [x] Add order details modal showing items, modifiers, notes
+- [x] Display loyalty points balance and history
+- [x] Implement repeat order quick action
+- [x] Link from Customers list to detail view
+- [x] Write tests for customer detail procedures (7 tests, all passing)

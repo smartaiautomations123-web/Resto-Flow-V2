@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useState } from "react";
-import { Plus, Pencil, Heart, Search, Star, Gift } from "lucide-react";
+import { Plus, Pencil, Heart, Search, Star, Gift, Eye } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Customers() {
   const utils = trpc.useUtils();
@@ -119,8 +120,10 @@ export default function Customers() {
               {customersList?.map(c => (
                 <tr key={c.id} className="border-b border-border/50 hover:bg-accent/30 transition-colors">
                   <td className="p-4">
-                    <p className="font-medium text-sm">{c.name}</p>
-                    {c.birthday && <p className="text-xs text-muted-foreground">Birthday: {c.birthday}</p>}
+                    <Link href={`/customers/${c.id}`}>
+                      <p className="font-medium text-sm cursor-pointer hover:text-primary transition-colors">{c.name}</p>
+                      {c.birthday && <p className="text-xs text-muted-foreground">Birthday: {c.birthday}</p>}
+                    </Link>
                   </td>
                   <td className="p-4 text-sm text-muted-foreground">
                     {c.email && <p>{c.email}</p>}
@@ -133,6 +136,11 @@ export default function Customers() {
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-1">
+                      <Link href={`/customers/${c.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setPointsCustomer(c); setPointsAmount(""); setShowPointsDialog(true); }}>
                         <Gift className="h-4 w-4 text-primary" />
                       </Button>

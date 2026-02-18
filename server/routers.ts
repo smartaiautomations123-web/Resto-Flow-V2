@@ -608,6 +608,17 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
     delete: adminProcedure.input(z.object({ tableId: z.number() })).mutation(({ input }) => db.deleteQRCode(input.tableId)),
     generateForAllTables: adminProcedure.query(() => db.generateQRCodeForAllTables()),
   }),
+
+  customerDetail: router({
+    getWithOrderHistory: protectedProcedure.input(z.object({ customerId: z.number() })).query(({ input }) => db.getCustomerWithOrderHistory(input.customerId)),
+    getOrderWithItems: protectedProcedure.input(z.object({ orderId: z.number() })).query(({ input }) => db.getOrderWithItems(input.orderId)),
+    getLoyaltyHistory: protectedProcedure.input(z.object({ customerId: z.number() })).query(({ input }) => db.getLoyaltyPointsHistory(input.customerId)),
+    repeatOrder: protectedProcedure.input(z.object({
+      customerId: z.number(),
+      sourceOrderId: z.number(),
+      newTableId: z.number().optional(),
+    })).mutation(({ input }) => db.createOrderFromCustomerOrder(input.customerId, input.sourceOrderId, input.newTableId)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

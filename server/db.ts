@@ -1180,3 +1180,156 @@ export async function generateQRCodeForAllTables() {
     url: `/table/${table.id}`,
   }));
 }
+
+// ─── Customer Detail View ────────────────────────────────────────────
+export async function getCustomerWithOrderHistory(customerId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  // Get customer
+  const customerResult = await db
+    .select()
+    .from(customers)
+    .where(eq(customers.id, customerId))
+    .limit(1);
+
+  if (customerResult.length === 0) return null;
+  const customer = customerResult[0];
+
+  // Get order history
+  const orderHistory = await db
+    .select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      createdAt: orders.createdAt,
+      total: orders.total,
+      status: orders.status,
+      paymentMethod: orders.paymentMethod,
+    })
+    .from(orders)
+    .where(eq(orders.customerId, customerId))
+    .orderBy(desc(orders.createdAt))
+    .limit(50);
+
+  return {
+    customer,
+    orderHistory: orderHistory,
+  };
+}
+
+export async function getOrderWithItems(orderId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const order = await db
+    .select()
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+
+  if (order.length === 0) return null;
+
+  const items = await db
+    .select({
+      id: orderItems.id,
+      menuItemId: orderItems.menuItemId,
+      itemName: orderItems.name,
+      quantity: orderItems.quantity,
+      unitPrice: orderItems.unitPrice,
+      totalPrice: orderItems.totalPrice,
+      notes: orderItems.notes,
+      modifiers: orderItems.modifiers,
+    })
+    .from(orderItems)
+
+    .where(eq(orderItems.orderId, orderId));
+
+  return {
+    order: order[0],
+    items,
+  };
+}
+
+export async function getLoyaltyPointsHistory(customerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Get all completed orders for this customer
+  const orders_list = await db
+    .select({
+      id: orders.id,
+      createdAt: orders.createdAt,
+      total: orders.total,
+
+    })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.customerId, customerId),
+        eq(orders.status, "completed")
+      )
+    )
+    .orderBy(desc(orders.createdAt));
+
+  return orders_list;
+}
+
+export async function createOrderFromCustomerOrder(
+  customerId: number,
+  sourceOrderId: number,
+  newTableId?: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Get the source order with items
+  const sourceOrder = await db
+    .select()
+    .from(orders)
+    .where(eq(orders.id, sourceOrderId))
+    .limit(1);
+
+  if (sourceOrder.length === 0) throw new Error("Source order not found");
+
+  const sourceItems = await db
+    .select()
+    .from(orderItems)
+    .where(eq(orderItems.orderId, sourceOrderId));
+
+  // Create new order
+  const orderNum = `ORD-${Date.now()}`;
+  const newOrder = await db.insert(orders).values({
+    orderNumber: orderNum,
+    customerId,
+    tableId: newTableId || sourceOrder[0].tableId,
+    type: sourceOrder[0].type,
+    status: "pending",
+    total: 0,
+    subtotal: 0,
+    taxAmount: 0,
+    discountAmount: 0,
+    serviceCharge: 0,
+    tipAmount: 0,
+    paymentMethod: "unpaid",
+    paymentStatus: "unpaid",
+    notes: `Repeat order from ${new Date(sourceOrder[0].createdAt).toLocaleDateString()}`,
+  } as any);
+
+  const newOrderId = newOrder[0].insertId;
+
+  // Copy items
+  for (const item of sourceItems) {
+    await db.insert(orderItems).values({
+      orderId: newOrderId as number,
+      menuItemId: item.menuItemId,
+      name: item.name,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: item.totalPrice,
+      notes: item.notes,
+      modifiers: item.modifiers,
+    });
+  }
+
+  return newOrderId;
+}

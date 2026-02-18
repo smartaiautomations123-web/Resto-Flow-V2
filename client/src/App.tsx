@@ -22,6 +22,7 @@ import FloorPlan from "./pages/FloorPlan";
 import ZReports from "./pages/ZReports";
 import VoidRefunds from "./pages/VoidRefunds";
 import QRCodeGenerator from "./pages/QRCodeGenerator";
+import CustomerDetail from "./pages/CustomerDetail";
 
 function Router() {
   return (
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/reports" component={() => <DashboardLayout><Reports /></DashboardLayout>} />
       <Route path="/suppliers" component={() => <DashboardLayout><Suppliers /></DashboardLayout>} />
       <Route path="/customers" component={() => <DashboardLayout><Customers /></DashboardLayout>} />
+      <Route path="/customers/:customerId" component={() => <DashboardLayout><CustomerDetail /></DashboardLayout>} />
       <Route path="/reservations" component={() => <DashboardLayout><Reservations /></DashboardLayout>} />
       <Route path="/price-uploads" component={() => <DashboardLayout><PriceUploads /></DashboardLayout>} />
       <Route path="/floor-plan" component={() => <DashboardLayout><FloorPlan /></DashboardLayout>} />
