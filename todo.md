@@ -72,14 +72,15 @@
 - [x] Store QR code URLs in database for easy reprint
 - [x] Add QR code library (qr-code-styling)
 
-### 4. Customer Order History Detail View
-- [ ] Create customer detail page showing full profile
-- [ ] Display customer's complete order history with dates, items, totals
-- [ ] Show order details modal (items, modifiers, notes)
-- [ ] Display loyalty points balance and history
-- [ ] Show birthday and notes
-- [ ] Add "repeat order" quick action
-- [ ] Link from Customers list to detail view
+### 4. Customer Order History Detail View (Completed)
+- [x] Create customer detail page showing full profile
+- [x] Display customer's complete order history with dates, items, totals
+- [x] Show order details modal (items, modifiers, notes)
+- [x] Display loyalty points balance and history
+- [x] Show birthday and notes
+- [x] Add "repeat order" quick action
+- [x] Link from Customers list to detail view
+- [x] Write tests for customer detail procedures (7 tests, all passing)
 
 ### 5. Automatic Plate Cost Calculation (Completed)
 - [x] Backend: Add procedure to calculate menu item cost from linked recipes
