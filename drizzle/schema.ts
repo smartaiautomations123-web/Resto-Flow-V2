@@ -660,3 +660,95 @@ export const wasteReports = mysqlTable("waste_reports", {
   wasteCount: int("waste_count").notNull(),
   generatedAt: timestamp("generated_at").defaultNow(),
 });
+
+// ─── Multi-Location Support ─────────────────────────────────────────────────
+export const locations = mysqlTable("locations", {
+  id: int("id").primaryKey().autoincrement(),
+  name: text("name").notNull(),
+  address: text("address").notNull(),
+  phone: text("phone"),
+  email: text("email"),
+  timezone: text("timezone"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// ─── Combo/Bundle Management ────────────────────────────────────────────────
+export const combos = mysqlTable("combos", {
+  id: int("id").primaryKey().autoincrement(),
+  locationId: int("location_id").references(() => locations.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  regularPrice: decimal("regular_price", { precision: 10, scale: 2 }),
+  discount: decimal("discount", { precision: 10, scale: 2 }),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const comboItems = mysqlTable("combo_items", {
+  id: int("id").primaryKey().autoincrement(),
+  comboId: int("combo_id").notNull().references(() => combos.id),
+  menuItemId: int("menu_item_id").notNull().references(() => menuItems.id),
+  quantity: int("quantity").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─── Advanced Labour Management ─────────────────────────────────────────────
+export const labourCompliance = mysqlTable("labour_compliance", {
+  id: int("id").primaryKey().autoincrement(),
+  locationId: int("location_id").references(() => locations.id),
+  maxHoursPerWeek: int("max_hours_per_week").default(40),
+  minBreakMinutes: int("min_break_minutes").default(30),
+  overtimeThreshold: int("overtime_threshold").default(40),
+  overtimeMultiplier: decimal("overtime_multiplier", { precision: 3, scale: 2 }).default("1.5"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const staffAvailability = mysqlTable("staff_availability", {
+  id: int("id").primaryKey().autoincrement(),
+  staffId: int("staff_id").notNull().references(() => staff.id),
+  dayOfWeek: int("day_of_week").notNull(), // 0-6 (Sunday-Saturday)
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  isAvailable: boolean("is_available").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const timeOffRequests = mysqlTable("time_off_requests", {
+  id: int("id").primaryKey().autoincrement(),
+  staffId: int("staff_id").notNull().references(() => staff.id),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  reason: text("reason"),
+  status: text("status").default("pending"), // pending, approved, rejected
+  approvedBy: int("approved_by").references(() => staff.id),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const overtimeAlerts = mysqlTable("overtime_alerts", {
+  id: int("id").primaryKey().autoincrement(),
+  staffId: int("staff_id").notNull().references(() => staff.id),
+  weekStartDate: timestamp("week_start_date").notNull(),
+  totalHours: decimal("total_hours", { precision: 5, scale: 2 }).notNull(),
+  overtimeHours: decimal("overtime_hours", { precision: 5, scale: 2 }).notNull(),
+  alertSent: boolean("alert_sent").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const labourBudget = mysqlTable("labour_budget", {
+  id: int("id").primaryKey().autoincrement(),
+  locationId: int("location_id").references(() => locations.id),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  budgetedHours: decimal("budgeted_hours", { precision: 7, scale: 2 }).notNull(),
+  budgetedCost: decimal("budgeted_cost", { precision: 12, scale: 2 }).notNull(),
+  actualHours: decimal("actual_hours", { precision: 7, scale: 2 }).default("0"),
+  actualCost: decimal("actual_cost", { precision: 12, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});

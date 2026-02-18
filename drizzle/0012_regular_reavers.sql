@@ -1,0 +1,1 @@
+ALTER TABLE `locations` MODIFY COLUMN `timezone` text;

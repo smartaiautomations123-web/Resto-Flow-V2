@@ -2077,3 +2077,109 @@ export async function getWasteByIngredient(startDate: Date, endDate: Date) {
   });
   return Object.values(grouped);
 }
+
+// ─── Multi-Location Support ────────────────────────────────────────────────
+export async function createLocation(name: string, address: string, phone?: string, email?: string, timezone?: string) {
+  return db.insert(locations).values({ name, address, phone, email, timezone }).execute();
+}
+
+export async function getLocations() {
+  return db.query.locations.findMany();
+}
+
+export async function getLocationById(id: number) {
+  return db.query.locations.findFirst({ where: eq(locations.id, id) });
+}
+
+export async function updateLocation(id: number, data: any) {
+  return db.update(locations).set(data).where(eq(locations.id, id)).execute();
+}
+
+// ─── Combo/Bundle Management ───────────────────────────────────────────────
+export async function createCombo(locationId: number | null, name: string, price: string, regularPrice?: string, discount?: string) {
+  return db.insert(combos).values({ locationId, name, price: new Decimal(price), regularPrice: regularPrice ? new Decimal(regularPrice) : undefined, discount: discount ? new Decimal(discount) : undefined }).execute();
+}
+
+export async function getCombos(locationId?: number) {
+  if (locationId) {
+    return db.query.combos.findMany({ where: eq(combos.locationId, locationId) });
+  }
+  return db.query.combos.findMany();
+}
+
+export async function getComboById(id: number) {
+  return db.query.combos.findFirst({ where: eq(combos.id, id) });
+}
+
+export async function addComboItem(comboId: number, menuItemId: number, quantity: number) {
+  return db.insert(comboItems).values({ comboId, menuItemId, quantity }).execute();
+}
+
+export async function getComboItems(comboId: number) {
+  return db.query.comboItems.findMany({ where: eq(comboItems.comboId, comboId) });
+}
+
+// ─── Advanced Labour Management ────────────────────────────────────────────
+export async function createLabourCompliance(locationId: number | null, maxHoursPerWeek: number, minBreakMinutes: number, overtimeThreshold: number, overtimeMultiplier: string) {
+  return db.insert(labourCompliance).values({ locationId, maxHoursPerWeek, minBreakMinutes, overtimeThreshold, overtimeMultiplier: new Decimal(overtimeMultiplier) }).execute();
+}
+
+export async function getLabourCompliance(locationId: number | null) {
+  if (locationId) {
+    return db.query.labourCompliance.findFirst({ where: eq(labourCompliance.locationId, locationId) });
+  }
+  return db.query.labourCompliance.findFirst();
+}
+
+export async function addStaffAvailability(staffId: number, dayOfWeek: number, startTime: string, endTime: string) {
+  return db.insert(staffAvailability).values({ staffId, dayOfWeek, startTime, endTime }).execute();
+}
+
+export async function getStaffAvailability(staffId: number) {
+  return db.query.staffAvailability.findMany({ where: eq(staffAvailability.staffId, staffId) });
+}
+
+export async function createTimeOffRequest(staffId: number, startDate: Date, endDate: Date, reason?: string) {
+  return db.insert(timeOffRequests).values({ staffId, startDate, endDate, reason, status: "pending" }).execute();
+}
+
+export async function getTimeOffRequests(staffId?: number) {
+  if (staffId) {
+    return db.query.timeOffRequests.findMany({ where: eq(timeOffRequests.staffId, staffId) });
+  }
+  return db.query.timeOffRequests.findMany();
+}
+
+export async function approveTimeOffRequest(id: number, approvedBy: number) {
+  return db.update(timeOffRequests).set({ status: "approved", approvedBy, approvedAt: new Date() }).where(eq(timeOffRequests.id, id)).execute();
+}
+
+export async function rejectTimeOffRequest(id: number) {
+  return db.update(timeOffRequests).set({ status: "rejected" }).where(eq(timeOffRequests.id, id)).execute();
+}
+
+export async function createOvertimeAlert(staffId: number, weekStartDate: Date, totalHours: string, overtimeHours: string) {
+  return db.insert(overtimeAlerts).values({ staffId, weekStartDate, totalHours: new Decimal(totalHours), overtimeHours: new Decimal(overtimeHours) }).execute();
+}
+
+export async function getOvertimeAlerts(staffId?: number) {
+  if (staffId) {
+    return db.query.overtimeAlerts.findMany({ where: eq(overtimeAlerts.staffId, staffId) });
+  }
+  return db.query.overtimeAlerts.findMany();
+}
+
+export async function createLabourBudget(locationId: number | null, month: number, year: number, budgetedHours: string, budgetedCost: string) {
+  return db.insert(labourBudget).values({ locationId, month, year, budgetedHours: new Decimal(budgetedHours), budgetedCost: new Decimal(budgetedCost) }).execute();
+}
+
+export async function getLabourBudget(locationId: number | null, month: number, year: number) {
+  if (locationId) {
+    return db.query.labourBudget.findFirst({ where: and(eq(labourBudget.locationId, locationId), eq(labourBudget.month, month), eq(labourBudget.year, year)) });
+  }
+  return db.query.labourBudget.findFirst({ where: and(eq(labourBudget.month, month), eq(labourBudget.year, year)) });
+}
+
+export async function updateLabourBudgetActuals(id: number, actualHours: string, actualCost: string) {
+  return db.update(labourBudget).set({ actualHours: new Decimal(actualHours), actualCost: new Decimal(actualCost) }).where(eq(labourBudget.id, id)).execute();
+}

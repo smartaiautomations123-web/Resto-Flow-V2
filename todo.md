@@ -214,29 +214,36 @@
 - [x] Create WasteTracking page with pie and bar charts
 - [x] Write tests for all three features (10 tests)
 
-### 17. Multi-Location Support
-- [ ] Add locations table to schema
-- [ ] Modify all tables to support location_id
-- [ ] Create location management page
-- [ ] Build consolidated reporting across locations
-- [ ] Support location-specific inventory
-- [ ] Support location-specific staff management
-- [ ] Backend: Major refactor to add location filtering
+### 17. Multi-Location Support (Completed)
+- [x] Add locations table to schema
+- [x] Modify all tables to support location_id
+- [x] Create location management page
+- [x] Build consolidated reporting across locations
+- [x] Support location-specific inventory
+- [x] Support location-specific staff management
+- [x] Backend: Major refactor to add location filtering
+- [x] Add 4 database helpers for location operations
+- [x] Add 4 tRPC endpoints for location management
 
-### 18. Combo/Bundle Management
-- [ ] Create combo builder UI
-- [ ] Link multiple items to create bundles
-- [ ] Set combo price (with discount vs individual items)
-- [ ] Show combos on POS menu
-- [ ] Backend: Add combos table and combo_items table
+### 18. Combo/Bundle Management (Completed)
+- [x] Create combo builder UI
+- [x] Link multiple items to create bundles
+- [x] Set combo price (with discount vs individual items)
+- [x] Show combos on POS menu
+- [x] Backend: Add combos table and combo_items table
+- [x] Add 5 database helpers for combo operations
+- [x] Add 5 tRPC endpoints for combo management
 
-### 19. Advanced Labour Management
-- [ ] Overtime tracking and alerts
-- [ ] Compliance rules (max hours, break requirements)
-- [ ] Staff availability calendar
-- [ ] Time-off request system
-- [ ] Labour budget vs actual tracking
-- [ ] Backend: Extend shifts table with overtime fields
+### 19. Advanced Labour Management (Completed)
+- [x] Overtime tracking and alerts
+- [x] Compliance rules (max hours, break requirements)
+- [x] Staff availability calendar
+- [x] Time-off request system
+- [x] Labour budget vs actual tracking
+- [x] Backend: Extend shifts table with overtime fields
+- [x] Add 12 database helpers for labour operations
+- [x] Add 11 tRPC endpoints for labour management
+- [x] Write tests for all three features (9 tests)
 
 ### 20. Payment Integration (Stripe/Square)
 - [ ] Integrate Stripe or Square for online payments
