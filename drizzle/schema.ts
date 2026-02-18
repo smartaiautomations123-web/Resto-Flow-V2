@@ -752,3 +752,76 @@ export const labourBudget = mysqlTable("labour_budget", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
+
+// Payment Integration
+export const paymentTransactions = mysqlTable("payment_transactions", {
+  id: int().primaryKey().autoincrement(),
+  orderId: int().references(() => orders.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  paymentMethod: varchar("payment_method", { length: 50 }),
+  provider: varchar("provider", { length: 50 }), // stripe, square
+  transactionId: varchar("transaction_id", { length: 255 }),
+  status: varchar("status", { length: 50 }), // pending, completed, failed, refunded
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }).default(0),
+  refundStatus: varchar("refund_status", { length: 50 }),
+  createdAt: timestamp().defaultNow(),
+  updatedAt: timestamp().onUpdateNow(),
+});
+
+// Real-Time Notifications
+export const notifications = mysqlTable("notifications", {
+  id: int().primaryKey().autoincrement(),
+  userId: int().references(() => users.id),
+  title: varchar("title", { length: 255 }),
+  message: text("message"),
+  type: varchar("type", { length: 50 }), // order, stock, staff, system
+  relatedId: int(),
+  isRead: boolean().default(false),
+  isArchived: boolean().default(false),
+  createdAt: timestamp().defaultNow(),
+});
+
+export const notificationPreferences = mysqlTable("notification_preferences", {
+  id: int().primaryKey().autoincrement(),
+  userId: int().references(() => users.id),
+  newOrders: boolean().default(true),
+  lowStock: boolean().default(true),
+  staffAlerts: boolean().default(true),
+  systemEvents: boolean().default(true),
+});
+
+// Recipe Costing Analysis
+export const recipeCostHistory = mysqlTable("recipe_cost_history", {
+  id: int().primaryKey().autoincrement(),
+  recipeId: int().references(() => recipes.id),
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }),
+  ingredientCount: int(),
+  recordedAt: timestamp().defaultNow(),
+});
+
+// Supplier Performance Tracking
+export const supplierPerformance = mysqlTable("supplier_performance", {
+  id: int().primaryKey().autoincrement(),
+  supplierId: int().references(() => suppliers.id),
+  month: int(),
+  year: int(),
+  totalOrders: int().default(0),
+  onTimeDeliveries: int().default(0),
+  lateDeliveries: int().default(0),
+  onTimeRate: decimal("on_time_rate", { precision: 5, scale: 2 }).default(0),
+  averagePrice: decimal("average_price", { precision: 10, scale: 2 }).default(0),
+  qualityRating: decimal("quality_rating", { precision: 3, scale: 1 }),
+  notes: text("notes"),
+  createdAt: timestamp().defaultNow(),
+  updatedAt: timestamp().onUpdateNow(),
+});
+
+export const supplierPriceHistory = mysqlTable("supplier_price_history", {
+  id: int().primaryKey().autoincrement(),
+  supplierId: int().references(() => suppliers.id),
+  ingredientId: int().references(() => ingredients.id),
+  price: decimal("price", { precision: 10, scale: 2 }),
+  unit: varchar("unit", { length: 50 }),
+  recordedAt: timestamp().defaultNow(),
+});

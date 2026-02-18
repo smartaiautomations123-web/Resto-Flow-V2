@@ -2183,3 +2183,85 @@ export async function getLabourBudget(locationId: number | null, month: number, 
 export async function updateLabourBudgetActuals(id: number, actualHours: string, actualCost: string) {
   return db.update(labourBudget).set({ actualHours: new Decimal(actualHours), actualCost: new Decimal(actualCost) }).where(eq(labourBudget.id, id)).execute();
 }
+
+// Payment Integration Helpers
+export async function createPaymentTransaction(orderId: number, amount: string, paymentMethod: string, provider: string, transactionId: string) {
+  return db.insert(paymentTransactions).values({ orderId, amount: parseFloat(amount), paymentMethod, provider, transactionId, status: "pending" });
+}
+
+export async function getPaymentsByOrder(orderId: number) {
+  return db.query.paymentTransactions.findMany({ where: eq(paymentTransactions.orderId, orderId) });
+}
+
+export async function updatePaymentStatus(id: number, status: string) {
+  return db.update(paymentTransactions).set({ status, updatedAt: new Date() }).where(eq(paymentTransactions.id, id));
+}
+
+export async function createRefund(id: number, refundAmount: string, refundStatus: string) {
+  return db.update(paymentTransactions).set({ refundAmount: parseFloat(refundAmount), refundStatus, updatedAt: new Date() }).where(eq(paymentTransactions.id, id));
+}
+
+// Notifications Helpers
+export async function createNotification(userId: number, title: string, message: string, type: string, relatedId?: number) {
+  return db.insert(notifications).values({ userId, title, message, type, relatedId });
+}
+
+export async function getUserNotifications(userId: number) {
+  return db.query.notifications.findMany({ where: and(eq(notifications.userId, userId), eq(notifications.isArchived, false)), orderBy: desc(notifications.createdAt) });
+}
+
+export async function markNotificationAsRead(id: number) {
+  return db.update(notifications).set({ isRead: true }).where(eq(notifications.id, id));
+}
+
+export async function archiveNotification(id: number) {
+  return db.update(notifications).set({ isArchived: true }).where(eq(notifications.id, id));
+}
+
+export async function getNotificationPreferences(userId: number) {
+  return db.query.notificationPreferences.findFirst({ where: eq(notificationPreferences.userId, userId) });
+}
+
+export async function updateNotificationPreferences(userId: number, prefs: any) {
+  return db.update(notificationPreferences).set(prefs).where(eq(notificationPreferences.userId, userId));
+}
+
+// Recipe Costing Analysis Helpers
+export async function recordRecipeCostHistory(recipeId: number, totalCost: string, ingredientCount: number) {
+  return db.insert(recipeCostHistory).values({ recipeId, totalCost: parseFloat(totalCost), ingredientCount });
+}
+
+export async function getRecipeCostHistory(recipeId: number) {
+  return db.query.recipeCostHistory.findMany({ where: eq(recipeCostHistory.recipeId, recipeId), orderBy: desc(recipeCostHistory.recordedAt) });
+}
+
+export async function compareCostVsPrice(recipeId: number, menuItemId: number) {
+  const costHistory = await getRecipeCostHistory(recipeId);
+  const latestCost = costHistory[0]?.totalCost || 0;
+  const item = await db.query.menuItems.findFirst({ where: eq(menuItems.id, menuItemId) });
+  return { cost: latestCost, price: item?.price || 0, margin: (item?.price || 0) - latestCost, marginPercent: ((item?.price || 0) - latestCost) / (item?.price || 1) * 100 };
+}
+
+// Supplier Performance Tracking Helpers
+export async function recordSupplierPerformance(supplierId: number, month: number, year: number, totalOrders: number, onTimeDeliveries: number, lateDeliveries: number, qualityRating: string) {
+  const onTimeRate = totalOrders > 0 ? (onTimeDeliveries / totalOrders * 100) : 0;
+  return db.insert(supplierPerformance).values({ supplierId, month, year, totalOrders, onTimeDeliveries, lateDeliveries, onTimeRate: onTimeRate.toString(), qualityRating: parseFloat(qualityRating) });
+}
+
+export async function getSupplierPerformance(supplierId: number) {
+  return db.query.supplierPerformance.findMany({ where: eq(supplierPerformance.supplierId, supplierId), orderBy: desc(supplierPerformance.year) });
+}
+
+export async function recordSupplierPrice(supplierId: number, ingredientId: number, price: string, unit: string) {
+  return db.insert(supplierPriceHistory).values({ supplierId, ingredientId, price: parseFloat(price), unit });
+}
+
+export async function getSupplierPriceHistory(supplierId: number, ingredientId: number) {
+  return db.query.supplierPriceHistory.findMany({ where: and(eq(supplierPriceHistory.supplierId, supplierId), eq(supplierPriceHistory.ingredientId, ingredientId)), orderBy: desc(supplierPriceHistory.recordedAt) });
+}
+
+export async function generateSupplierScorecard(supplierId: number) {
+  const performance = await getSupplierPerformance(supplierId);
+  const latestPerf = performance[0];
+  return { supplierId, onTimeRate: latestPerf?.onTimeRate || 0, qualityRating: latestPerf?.qualityRating || 0, averagePrice: latestPerf?.averagePrice || 0, totalOrders: latestPerf?.totalOrders || 0 };
+}

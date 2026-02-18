@@ -854,8 +854,31 @@ export type AppRouter = typeof appRouter;
     getTotalCost: protectedProcedure.input(z.object({ startDate: z.date(), endDate: z.date() })).query(({ input }) => db.getTotalWasteCost(input.startDate, input.endDate)),
     getByIngredient: protectedProcedure.input(z.object({ startDate: z.date(), endDate: z.date() })).query(({ input }) => db.getWasteByIngredient(input.startDate, input.endDate)),
   }),
+  payments: router({
+    create: protectedProcedure.input(z.object({ orderId: z.number(), amount: z.string(), paymentMethod: z.string(), provider: z.string(), transactionId: z.string() })).mutation(({ input }) => db.createPaymentTransaction(input.orderId, input.amount, input.paymentMethod, input.provider, input.transactionId)),
+    getByOrder: protectedProcedure.input(z.object({ orderId: z.number() })).query(({ input }) => db.getPaymentsByOrder(input.orderId)),
+    updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(({ input }) => db.updatePaymentStatus(input.id, input.status)),
+    createRefund: protectedProcedure.input(z.object({ id: z.number(), refundAmount: z.string(), refundStatus: z.string() })).mutation(({ input }) => db.createRefund(input.id, input.refundAmount, input.refundStatus)),
+  }),
+  notifications: router({
+    create: protectedProcedure.input(z.object({ userId: z.number(), title: z.string(), message: z.string(), type: z.string(), relatedId: z.number().optional() })).mutation(({ input }) => db.createNotification(input.userId, input.title, input.message, input.type, input.relatedId)),
+    getByUser: protectedProcedure.input(z.object({ userId: z.number() })).query(({ input }) => db.getUserNotifications(input.userId)),
+    markAsRead: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.markNotificationAsRead(input.id)),
+    archive: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.archiveNotification(input.id)),
+    getPreferences: protectedProcedure.input(z.object({ userId: z.number() })).query(({ input }) => db.getNotificationPreferences(input.userId)),
+    updatePreferences: protectedProcedure.input(z.object({ userId: z.number(), prefs: z.any() })).mutation(({ input }) => db.updateNotificationPreferences(input.userId, input.prefs)),
+  }),
+  recipes: router({
+    recordCostHistory: protectedProcedure.input(z.object({ recipeId: z.number(), totalCost: z.string(), ingredientCount: z.number() })).mutation(({ input }) => db.recordRecipeCostHistory(input.recipeId, input.totalCost, input.ingredientCount)),
+    getCostHistory: protectedProcedure.input(z.object({ recipeId: z.number() })).query(({ input }) => db.getRecipeCostHistory(input.recipeId)),
+    compareCostVsPrice: protectedProcedure.input(z.object({ recipeId: z.number(), menuItemId: z.number() })).query(({ input }) => db.compareCostVsPrice(input.recipeId, input.menuItemId)),
+  }),
+  suppliers: router({
+    recordPerformance: protectedProcedure.input(z.object({ supplierId: z.number(), month: z.number(), year: z.number(), totalOrders: z.number(), onTimeDeliveries: z.number(), lateDeliveries: z.number(), qualityRating: z.string() })).mutation(({ input }) => db.recordSupplierPerformance(input.supplierId, input.month, input.year, input.totalOrders, input.onTimeDeliveries, input.lateDeliveries, input.qualityRating)),
+    getPerformance: protectedProcedure.input(z.object({ supplierId: z.number() })).query(({ input }) => db.getSupplierPerformance(input.supplierId)),
+    recordPrice: protectedProcedure.input(z.object({ supplierId: z.number(), ingredientId: z.number(), price: z.string(), unit: z.string() })).mutation(({ input }) => db.recordSupplierPrice(input.supplierId, input.ingredientId, input.price, input.unit)),
+    getPriceHistory: protectedProcedure.input(z.object({ supplierId: z.number(), ingredientId: z.number() })).query(({ input }) => db.getSupplierPriceHistory(input.supplierId, input.ingredientId)),
+    generateScorecard: protectedProcedure.input(z.object({ supplierId: z.number() })).query(({ input }) => db.generateSupplierScorecard(input.supplierId)),
+  }),
 });
 
-
-
-export type AppRouter = typeof appRouter;

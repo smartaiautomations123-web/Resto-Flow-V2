@@ -245,35 +245,37 @@
 - [x] Add 11 tRPC endpoints for labour management
 - [x] Write tests for all three features (9 tests)
 
-### 20. Payment Integration (Stripe/Square)
-- [ ] Integrate Stripe or Square for online payments
-- [ ] Support card payments in online ordering
-- [ ] Support card payments in POS (if hardware available)
-- [ ] Reconcile payments with orders
-- [ ] Handle refunds through payment gateway
-- [ ] Backend: Add payment_transactions table
+### 20. Payment Integration (Stripe/Square) (Completed)
+- [x] Integrate Stripe or Square for online payments
+- [x] Support card payments in online ordering
+- [x] Support card payments in POS (if hardware available)
+- [x] Reconcile payments with orders
+- [x] Handle refunds through payment gateway
+- [x] Backend: Add payment_transactions table
+- [x] Add 4 database helpers for payment operations
+- [x] Add 4 tRPC endpoints for payment management
 
-### 21. Real-Time Notifications System
-- [ ] Build notification center/bell icon
-- [ ] Implement WebSocket or polling for real-time updates
-- [ ] Notify on: new orders, low stock, staff alerts, system events
-- [ ] Allow users to dismiss/archive notifications
-- [ ] Notification preferences per user
-- [ ] Backend: Add notifications table and service
+### 21. Real-Time Notifications System (Completed)
+- [x] Build notification center/bell icon
+- [x] Implement WebSocket or polling for real-time updates
+- [x] Notify on: new orders, low stock, staff alerts, system events
+- [x] Allow users to dismiss/archive notifications
+- [x] Notification preferences per user
+- [x] Backend: Add notifications table and service
 
-### 22. Recipe Costing Analysis
-- [ ] Show ingredient cost breakdown per recipe
-- [ ] Identify cost changes when ingredient prices update
-- [ ] Compare recipe cost vs menu item price
-- [ ] Suggest price adjustments based on cost changes
-- [ ] Track recipe cost history
+### 22. Recipe Costing Analysis (Completed)
+- [x] Show ingredient cost breakdown per recipe
+- [x] Identify cost changes when ingredient prices update
+- [x] Compare recipe cost vs menu item price
+- [x] Suggest price adjustments based on cost changes
+- [x] Track recipe cost history
 
-### 23. Supplier Performance Tracking
-- [ ] Track on-time delivery rate per supplier
-- [ ] Monitor price trends per supplier
-- [ ] Quality ratings and notes
-- [ ] Identify best suppliers for each ingredient
-- [ ] Generate supplier scorecards
+### 23. Supplier Performance Tracking (Completed)
+- [x] Track on-time delivery rate per supplier
+- [x] Monitor price trends per supplier
+- [x] Quality ratings and notes
+- [x] Identify best suppliers for each ingredient
+- [x] Generate supplier scorecards
 
 ---
 
