@@ -57,6 +57,13 @@
       "when": 1771419972707,
       "tag": "0007_flashy_dreadnoughts",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1771421069624,
+      "tag": "0008_elite_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

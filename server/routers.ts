@@ -288,6 +288,55 @@ export const appRouter = router({
       .mutation(({ input }) => db.addLoyaltyPoints(input.customerId, input.points)),
   }),
 
+  // ─── Customer Segmentation ───────────────────────────────────────
+  segments: router({
+    list: protectedProcedure.query(() => db.getSegments()),
+    get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getSegmentById(input.id)),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), description: z.string().optional(), color: z.string().optional(),
+    })).mutation(({ input }) => db.createSegment(input.name, input.description, input.color)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), name: z.string().optional(), description: z.string().optional(), color: z.string().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateSegment(id, data.name, data.description, data.color); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteSegment(input.id)),
+    addCustomer: protectedProcedure.input(z.object({ customerId: z.number(), segmentId: z.number() }))
+      .mutation(({ input }) => db.addCustomerToSegment(input.customerId, input.segmentId)),
+    removeCustomer: protectedProcedure.input(z.object({ customerId: z.number(), segmentId: z.number() }))
+      .mutation(({ input }) => db.removeCustomerFromSegment(input.customerId, input.segmentId)),
+    members: protectedProcedure.input(z.object({ segmentId: z.number() }))
+      .query(({ input }) => db.getSegmentMembers(input.segmentId)),
+    memberCount: protectedProcedure.input(z.object({ segmentId: z.number() }))
+      .query(({ input }) => db.getSegmentMemberCount(input.segmentId)),
+    export: protectedProcedure.input(z.object({ segmentId: z.number() }))
+      .query(({ input }) => db.exportSegmentCustomers(input.segmentId)),
+    customerSegments: protectedProcedure.input(z.object({ customerId: z.number() }))
+      .query(({ input }) => db.getCustomerSegments(input.customerId)),
+  }),
+
+  // ─── Campaigns ───────────────────────────────────────────────────
+  campaigns: router({
+    list: protectedProcedure.query(() => db.getCampaigns()),
+    get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getCampaignById(input.id)),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), type: z.enum(["email", "sms", "push"]), content: z.string(),
+      segmentId: z.number().optional(), subject: z.string().optional(),
+    })).mutation(({ input }) => db.createCampaign(input.name, input.type, input.content, input.segmentId, input.subject)),
+    updateStatus: protectedProcedure.input(z.object({
+      id: z.number(), status: z.enum(["draft", "scheduled", "sent", "cancelled"]),
+    })).mutation(({ input }) => db.updateCampaignStatus(input.id, input.status)),
+    addRecipients: protectedProcedure.input(z.object({
+      campaignId: z.number(), customerIds: z.array(z.number()),
+    })).mutation(({ input }) => db.addCampaignRecipients(input.campaignId, input.customerIds)),
+    recipients: protectedProcedure.input(z.object({ campaignId: z.number() }))
+      .query(({ input }) => db.getCampaignRecipients(input.campaignId)),
+    stats: protectedProcedure.input(z.object({ campaignId: z.number() }))
+      .query(({ input }) => db.getCampaignStats(input.campaignId)),
+    updateRecipientStatus: protectedProcedure.input(z.object({
+      recipientId: z.number(), status: z.enum(["pending", "sent", "failed", "opened", "clicked"]),
+    })).mutation(({ input }) => db.updateRecipientStatus(input.recipientId, input.status)),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteCampaign(input.id)),
+  }),
+
   // ─── Reservations ────────────────────────────────────────────────
   reservations: router({
     list: protectedProcedure.input(z.object({ date: z.string().optional() }).optional())

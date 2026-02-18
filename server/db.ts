@@ -13,6 +13,7 @@ import {
   zReports, zReportItems, zReportShifts,
   voidAuditLog, InsertVoidAuditLog,
   qrCodes, InsertQRCode,
+  customerSegments, segmentMembers, campaigns, campaignRecipients,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1867,4 +1868,308 @@ export async function getProfitabilitySummary(dateFrom: string, dateTo: string) 
     avgOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
     avgItemPrice: totalItems > 0 ? totalRevenue / totalItems : 0,
   };
+}
+
+
+// ─── Customer Segmentation ───────────────────────────────────────────
+export async function createSegment(name: string, description?: string, color?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(customerSegments).values({
+    name,
+    description,
+    color: color || "#3b82f6",
+  });
+
+  return result;
+}
+
+export async function getSegments() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.select().from(customerSegments).orderBy(customerSegments.name);
+}
+
+export async function getSegmentById(segmentId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.select().from(customerSegments).where(eq(customerSegments.id, segmentId));
+  return result[0] || null;
+}
+
+export async function updateSegment(segmentId: number, name?: string, description?: string, color?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updates: any = {};
+  if (name) updates.name = name;
+  if (description !== undefined) updates.description = description;
+  if (color) updates.color = color;
+
+  return db.update(customerSegments).set(updates).where(eq(customerSegments.id, segmentId));
+}
+
+export async function deleteSegment(segmentId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Delete segment members first
+  await db.delete(segmentMembers).where(eq(segmentMembers.segmentId, segmentId));
+  // Delete segment
+  return db.delete(customerSegments).where(eq(customerSegments.id, segmentId));
+}
+
+export async function addCustomerToSegment(customerId: number, segmentId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Check if already exists
+  const existing = await db.select().from(segmentMembers).where(
+    and(eq(segmentMembers.customerId, customerId), eq(segmentMembers.segmentId, segmentId))
+  );
+
+  if (existing.length > 0) return existing[0];
+
+  return db.insert(segmentMembers).values({ customerId, segmentId });
+}
+
+export async function removeCustomerFromSegment(customerId: number, segmentId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.delete(segmentMembers).where(
+    and(eq(segmentMembers.customerId, customerId), eq(segmentMembers.segmentId, segmentId))
+  );
+}
+
+export async function getSegmentMembers(segmentId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .select({
+      id: customers.id,
+      name: customers.name,
+      email: customers.email,
+      phone: customers.phone,
+      totalSpent: customers.totalSpent,
+      visitCount: customers.visitCount,
+      loyaltyPoints: customers.loyaltyPoints,
+      addedAt: segmentMembers.addedAt,
+    })
+    .from(segmentMembers)
+    .innerJoin(customers, eq(segmentMembers.customerId, customers.id))
+    .where(eq(segmentMembers.segmentId, segmentId))
+    .orderBy(desc(segmentMembers.addedAt));
+}
+
+export async function getCustomerSegments(customerId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .select({
+      id: customerSegments.id,
+      name: customerSegments.name,
+      color: customerSegments.color,
+    })
+    .from(segmentMembers)
+    .innerJoin(customerSegments, eq(segmentMembers.segmentId, customerSegments.id))
+    .where(eq(segmentMembers.customerId, customerId));
+}
+
+export async function getSegmentMemberCount(segmentId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(segmentMembers)
+    .where(eq(segmentMembers.segmentId, segmentId));
+
+  return result[0]?.count || 0;
+}
+
+export async function exportSegmentCustomers(segmentId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .select({
+      name: customers.name,
+      email: customers.email,
+      phone: customers.phone,
+      totalSpent: customers.totalSpent,
+      visitCount: customers.visitCount,
+      loyaltyPoints: customers.loyaltyPoints,
+    })
+    .from(segmentMembers)
+    .innerJoin(customers, eq(segmentMembers.customerId, customers.id))
+    .where(eq(segmentMembers.segmentId, segmentId));
+}
+
+// ─── Campaigns ───────────────────────────────────────────────────────
+export async function createCampaign(name: string, type: "email" | "sms" | "push", content: string, segmentId?: number, subject?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(campaigns).values({
+    name,
+    type,
+    content,
+    subject,
+    segmentId,
+    status: "draft",
+  });
+
+  return result;
+}
+
+export async function getCampaigns() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .select({
+      id: campaigns.id,
+      name: campaigns.name,
+      type: campaigns.type,
+      status: campaigns.status,
+      totalRecipients: campaigns.totalRecipients,
+      sentCount: campaigns.sentCount,
+      openCount: campaigns.openCount,
+      clickCount: campaigns.clickCount,
+      createdAt: campaigns.createdAt,
+      sentAt: campaigns.sentAt,
+      segmentId: campaigns.segmentId,
+    })
+    .from(campaigns)
+    .orderBy(desc(campaigns.createdAt));
+}
+
+export async function getCampaignById(campaignId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.select().from(campaigns).where(eq(campaigns.id, campaignId));
+  return result[0] || null;
+}
+
+export async function updateCampaignStatus(campaignId: number, status: "draft" | "scheduled" | "sent" | "cancelled") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updates: any = { status };
+  if (status === "sent") updates.sentAt = new Date();
+
+  return db.update(campaigns).set(updates).where(eq(campaigns.id, campaignId));
+}
+
+export async function updateCampaignStats(campaignId: number, sentCount: number, openCount: number, clickCount: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.update(campaigns).set({
+    sentCount,
+    openCount,
+    clickCount,
+  }).where(eq(campaigns.id, campaignId));
+}
+
+export async function addCampaignRecipients(campaignId: number, customerIds: number[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const recipients = customerIds.map(customerId => ({
+    campaignId: campaignId,
+    customerId: customerId,
+    status: "pending" as const,
+  }));
+
+  if (recipients.length > 0) {
+    await db.insert(campaignRecipients).values(recipients);
+  }
+
+  // Update campaign total recipients
+  const count = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(campaignRecipients)
+    .where(eq(campaignRecipients.campaignId, campaignId));
+
+  await db.update(campaigns).set({
+    totalRecipients: count[0]?.count || 0,
+  }).where(eq(campaigns.id, campaignId));
+}
+
+export async function getCampaignRecipients(campaignId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .select({
+      id: campaignRecipients.id,
+      customerId: campaignRecipients.customerId,
+      customerName: customers.name,
+      customerEmail: customers.email,
+      status: campaignRecipients.status,
+      sentAt: campaignRecipients.sentAt,
+      openedAt: campaignRecipients.openedAt,
+      clickedAt: campaignRecipients.clickedAt,
+    })
+    .from(campaignRecipients)
+    .innerJoin(customers, eq(campaignRecipients.customerId, customers.id))
+    .where(eq(campaignRecipients.campaignId, campaignId));
+}
+
+export async function updateRecipientStatus(recipientId: number, status: "pending" | "sent" | "failed" | "opened" | "clicked") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updates: any = { status };
+  if (status === "sent") updates.sentAt = new Date();
+  if (status === "opened") updates.openedAt = new Date();
+  if (status === "clicked") updates.clickedAt = new Date();
+
+  return db.update(campaignRecipients).set(updates).where(eq(campaignRecipients.id, recipientId));
+}
+
+export async function getCampaignStats(campaignId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const recipients = await db
+    .select({
+      status: campaignRecipients.status,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(campaignRecipients)
+    .where(eq(campaignRecipients.campaignId, campaignId))
+    .groupBy(campaignRecipients.status);
+
+  const stats = {
+    pending: 0,
+    sent: 0,
+    failed: 0,
+    opened: 0,
+    clicked: 0,
+  };
+
+  recipients.forEach((r) => {
+    stats[r.status as keyof typeof stats] = r.count || 0;
+  });
+
+  return stats;
+}
+
+export async function deleteCampaign(campaignId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Delete campaign recipients first
+  await db.delete(campaignRecipients).where(eq(campaignRecipients.campaignId, campaignId));
+  // Delete campaign
+  return db.delete(campaigns).where(eq(campaigns.id, campaignId));
 }

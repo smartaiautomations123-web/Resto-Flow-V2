@@ -264,6 +264,53 @@ export const customers = mysqlTable("customers", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+// ─── Customer Segments ───────────────────────────────────────────────
+export const customerSegments = mysqlTable("customer_segments", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 7 }).default("#3b82f6"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const segmentMembers = mysqlTable("segment_members", {
+  id: int("id").autoincrement().primaryKey(),
+  segmentId: int("segmentId").notNull(),
+  customerId: int("customerId").notNull(),
+  addedAt: timestamp("addedAt").defaultNow().notNull(),
+});
+
+// ─── Campaigns ───────────────────────────────────────────────────────
+export const campaigns = mysqlTable("campaigns", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  type: mysqlEnum("type", ["email", "sms", "push"]).default("email").notNull(),
+  subject: varchar("subject", { length: 255 }),
+  content: text("content").notNull(),
+  segmentId: int("segmentId"),
+  status: mysqlEnum("status", ["draft", "scheduled", "sent", "cancelled"]).default("draft").notNull(),
+  scheduledAt: timestamp("scheduledAt"),
+  sentAt: timestamp("sentAt"),
+  totalRecipients: int("totalRecipients").default(0),
+  sentCount: int("sentCount").default(0),
+  openCount: int("openCount").default(0),
+  clickCount: int("clickCount").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const campaignRecipients = mysqlTable("campaign_recipients", {
+  id: int("id").autoincrement().primaryKey(),
+  campaignId: int("campaignId").notNull(),
+  customerId: int("customerId").notNull(),
+  status: mysqlEnum("status", ["pending", "sent", "failed", "opened", "clicked"]).default("pending").notNull(),
+  sentAt: timestamp("sentAt"),
+  openedAt: timestamp("openedAt"),
+  clickedAt: timestamp("clickedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 // ─── Reservations ────────────────────────────────────────────────────
 export const reservations = mysqlTable("reservations", {
   id: int("id").autoincrement().primaryKey(),

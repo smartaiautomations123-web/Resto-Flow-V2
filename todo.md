@@ -115,13 +115,15 @@
 - [x] Backend: Add profit calculation queries (7 functions)
 - [x] Write tests for profitability procedures (10 tests, all passing)
 
-### 8. Customer Segmentation & Communication
-- [ ] Add customer tags/segments (VIP, frequent, new, inactive, etc.)
-- [ ] Create customer segment management page
-- [ ] Build email/SMS campaign builder (basic)
-- [ ] Export customer lists by segment
-- [ ] Track campaign performance (send date, open rate, etc.)
-- [ ] Backend: Add customer_segments table and segment_members table
+### 8. Customer Segmentation & Communication (Completed)
+- [x] Add customer tags/segments (VIP, frequent, new, inactive, etc.)
+- [x] Create customer segment management page
+- [x] Build email/SMS campaign builder (basic)
+- [x] Export customer lists by segment
+- [x] Track campaign performance (send date, open rate, etc.)
+- [x] Backend: Add customer_segments table and segment_members table
+- [x] Add campaigns table with recipient tracking
+- [x] Write tests for segmentation procedures (11 tests, all passing)
 
 ### 9. Order History & Receipt Printing
 - [ ] Create order history page with search/filter by date, customer, status

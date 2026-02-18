@@ -24,7 +24,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, ShoppingCart, ChefHat, UtensilsCrossed,
   Package, Users, BarChart3, Truck, Heart, CalendarDays,
-  LogOut, PanelLeft, Flame, Upload, Grid3x3, Receipt, AlertCircle, QrCode, Clock, TrendingUp,
+  LogOut, PanelLeft, Flame, Upload, Grid3x3, Receipt, AlertCircle, QrCode, Clock, TrendingUp, Zap,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -49,6 +49,7 @@ const menuItems = [
   { icon: QrCode, label: "QR Codes", path: "/qr-codes" },
   { icon: Clock, label: "Waitlist", path: "/waitlist" },
   { icon: TrendingUp, label: "Profitability", path: "/profitability" },
+  { icon: Zap, label: "Segments", path: "/segments" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
