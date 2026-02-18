@@ -733,3 +733,28 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
 });
 
 export type AppRouter = typeof appRouter;
+
+  orderTracking: router({
+    getByOrderNumber: publicProcedure.input(z.object({ orderNumber: z.string() }))
+      .query(({ input }) => db.getOrderByOrderNumber(input.orderNumber)),
+    getStatusWithItems: publicProcedure.input(z.object({ orderNumber: z.string() }))
+      .query(({ input }) => db.getOrderStatusWithItems(input.orderNumber)),
+    getEstimatedTime: publicProcedure.input(z.object({ orderId: z.number() }))
+      .query(({ input }) => db.calculateEstimatedTime(input.orderId)),
+    getStatusTimeline: publicProcedure.input(z.object({ orderId: z.number() }))
+      .query(({ input }) => db.getOrderStatusTimeline(input.orderId)),
+    updateStatus: protectedProcedure.input(z.object({ orderId: z.number(), status: z.string() }))
+      .mutation(({ input }) => db.updateOrderStatus(input.orderId, input.status)),
+  orderTracking: router({
+    getByOrderNumber: publicProcedure.input(z.object({ orderNumber: z.string() }))
+      .query(({ input }) => db.getOrderByOrderNumber(input.orderNumber)),
+    getStatusWithItems: publicProcedure.input(z.object({ orderNumber: z.string() }))
+      .query(({ input }) => db.getOrderStatusWithItems(input.orderNumber)),
+    getEstimatedTime: publicProcedure.input(z.object({ orderId: z.number() }))
+      .query(({ input }) => db.calculateEstimatedTime(input.orderId)),
+    getStatusTimeline: publicProcedure.input(z.object({ orderId: z.number() }))
+      .query(({ input }) => db.getOrderStatusTimeline(input.orderId)),
+    updateStatus: protectedProcedure.input(z.object({ orderId: z.number(), status: z.string() }))
+      .mutation(({ input }) => db.updateOrderStatus(input.orderId, input.status)),
+  }),
+});

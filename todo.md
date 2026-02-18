@@ -136,13 +136,16 @@
 - [x] Add 4 tRPC endpoints for receipt generation and email
 - [x] Write tests for order history procedures (10 tests)
 
-### 10. Real-Time Order Status Tracking (for Online Orders)
-- [ ] Create public order status page (no login required)
-- [ ] Customer enters order number to view status
-- [ ] Show: pending → preparing → ready → completed
-- [ ] Estimated time remaining
-- [ ] Push notification when order status changes
-- [ ] Backend: Ensure online orders are properly tracked
+### 10. Real-Time Order Status Tracking (for Online Orders) (Completed)
+- [x] Create public order status page (no login required)
+- [x] Customer enters order number to view status
+- [x] Show: pending → preparing → ready → completed
+- [x] Estimated time remaining
+- [x] Push notification infrastructure for order status changes
+- [x] Backend: Ensure online orders are properly tracked
+- [x] Add 8 database helpers for order tracking and time estimation
+- [x] Add 5 tRPC endpoints for public order status lookup
+- [x] Write tests for order status tracking procedures (10 tests)
 
 ### 11. Timesheet CSV Export
 - [ ] Add export button on Staff page

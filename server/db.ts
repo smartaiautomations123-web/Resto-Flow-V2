@@ -1540,3 +1540,203 @@ export async function generatePDFReceiptHTML(orderId: number) {
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Receipt #${receiptData.orderNumber}</title><style>body{font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px}.header{text-align:center;margin-bottom:20px;border-bottom:2px solid #333;padding-bottom:10px}.order-info{margin-bottom:20px}.order-info p{margin:5px 0}table{width:100%;border-collapse:collapse;margin-bottom:20px}th{text-align:left;border-bottom:1px solid #333;padding:10px 0}td{padding:8px 0}.totals{text-align:right;margin-bottom:20px;border-top:2px solid #333;padding-top:10px}.total-amount{font-size:1.5em;font-weight:bold}.footer{text-align:center;margin-top:20px;color:#666;font-size:0.9em}</style></head><body><div class="header"><h1>RECEIPT</h1><p>Order #${receiptData.orderNumber}</p><p>${new Date(receiptData.createdAt).toLocaleString()}</p></div><div class="order-info"><p><strong>Customer:</strong> ${receiptData.customerName || "N/A"}</p><p><strong>Type:</strong> ${receiptData.type}</p><p><strong>Status:</strong> ${receiptData.status}</p></div><table><thead><tr><th>Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Unit Price</th><th style="text-align:right;">Total</th></tr></thead><tbody>${itemsHTML}</tbody></table><div class="totals"><p>Subtotal: $${parseFloat(receiptData.subtotal as any).toFixed(2)}</p><p class="total-amount">Total: $${parseFloat(receiptData.total as any).toFixed(2)}</p><p>Payment Method: ${receiptData.paymentMethod}</p></div><div class="footer"><p>Thank you for your business!</p></div></body></html>`;
 }
+
+// ─── User Management ───────────────────────────────────────────────
+export async function upsertUser(data: {
+  openId: string;
+  name: string | null;
+  email: string | null;
+  loginMethod: string | null;
+  lastSignedIn: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const existing = await db.select().from(users).where(eq(users.openId, data.openId)).limit(1);
+
+  if (existing.length > 0) {
+    // Update existing user
+    return await db
+      .update(users)
+      .set({
+        name: data.name,
+        email: data.email,
+        loginMethod: data.loginMethod,
+        lastSignedIn: data.lastSignedIn,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.openId, data.openId));
+  } else {
+    // Create new user
+    return await db.insert(users).values({
+      openId: data.openId,
+      name: data.name,
+      email: data.email,
+      loginMethod: data.loginMethod,
+      lastSignedIn: data.lastSignedIn,
+    });
+  }
+}
+
+
+// ─── Order Status Tracking ───────────────────────────────────────────
+export async function getOrderByOrderNumber(orderNumber: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db
+    .select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      status: orders.status,
+      type: orders.type,
+      total: orders.total,
+      createdAt: orders.createdAt,
+      completedAt: orders.completedAt,
+      customerId: orders.customerId,
+    })
+    .from(orders)
+    .where(eq(orders.orderNumber, orderNumber))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+export async function getOrderStatusWithItems(orderNumber: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const order = await getOrderByOrderNumber(orderNumber);
+  if (!order) return null;
+
+  const items = await db
+    .select({
+      id: orderItems.id,
+      itemName: menuItems.name,
+      quantity: orderItems.quantity,
+      status: orderItems.status,
+      notes: orderItems.notes,
+    })
+    .from(orderItems)
+    .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+    .where(eq(orderItems.orderId, order.id));
+
+  return {
+    ...order,
+    items,
+  };
+}
+
+export async function calculateEstimatedTime(orderId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const order = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order || !order[0]) return null;
+
+  const orderData = order[0];
+  const createdAt = new Date(orderData.createdAt).getTime();
+  const now = Date.now();
+  const elapsedMs = now - createdAt;
+
+  // Base time: 15 minutes per order
+  const baseTimeMs = 15 * 60 * 1000;
+  const estimatedTotalMs = baseTimeMs;
+  const remainingMs = Math.max(0, estimatedTotalMs - elapsedMs);
+
+  return {
+    estimatedTotalMinutes: Math.ceil(estimatedTotalMs / 60000),
+    elapsedMinutes: Math.ceil(elapsedMs / 60000),
+    remainingMinutes: Math.ceil(remainingMs / 60000),
+    percentComplete: Math.min(100, Math.round((elapsedMs / estimatedTotalMs) * 100)),
+  };
+}
+
+export async function getOrderStatusTimeline(orderId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const order = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order || !order[0]) return null;
+
+  const orderData = order[0];
+  const createdAt = new Date(orderData.createdAt);
+  const completedAt = orderData.completedAt ? new Date(orderData.completedAt) : null;
+
+  const statuses = ["pending", "preparing", "ready", "completed"];
+  const currentStatusIndex = statuses.indexOf(orderData.status);
+
+  return {
+    statuses: statuses.map((status, index) => ({
+      name: status,
+      completed: index < currentStatusIndex,
+      current: index === currentStatusIndex,
+      timestamp: index === statuses.length - 1 && completedAt ? completedAt : null,
+    })),
+    currentStatus: orderData.status,
+    createdAt,
+    completedAt,
+  };
+}
+
+export async function updateOrderStatus(orderId: number, newStatus: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updateData: any = {
+    status: newStatus,
+    updatedAt: new Date(),
+  };
+
+  if (newStatus === "completed") {
+    updateData.completedAt = new Date();
+  }
+
+  return await db.update(orders).set(updateData).where(eq(orders.id, orderId));
+}
+
+// ─── Push Notifications ───────────────────────────────────────────
+export async function notifyOrderStatusChange(orderId: number, newStatus: string) {
+  // This is a placeholder for push notification infrastructure
+  // In production, this would integrate with a service like Firebase Cloud Messaging
+  // or Web Push API to send notifications to customers
+  
+  const order = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order || !order[0]) return null;
+
+  const orderData = order[0];
+  const customer = await db.select().from(customers).where(eq(customers.id, orderData.customerId)).limit(1);
+
+  if (!customer || !customer[0]) return null;
+
+  // Notification payload
+  const notification = {
+    orderId,
+    orderNumber: orderData.orderNumber,
+    status: newStatus,
+    customerEmail: customer[0].email,
+    customerPhone: customer[0].phone,
+    timestamp: new Date(),
+    message: `Your order ${orderData.orderNumber} is now ${newStatus}`,
+  };
+
+  // Log notification (in production, send via email/SMS/push service)
+  console.log("[Notification]", notification);
+
+  return notification;
+}
+
+export async function getOrderNotificationHistory(orderId: number) {
+  // Placeholder for retrieving notification history
+  // In production, this would query a notifications table
+  const order = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order || !order[0]) return null;
+
+  return {
+    orderId,
+    orderNumber: order[0].orderNumber,
+    createdAt: order[0].createdAt,
+    completedAt: order[0].completedAt,
+    status: order[0].status,
+  };
+}
