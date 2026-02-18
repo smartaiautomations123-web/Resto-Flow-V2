@@ -147,12 +147,16 @@
 - [x] Add 5 tRPC endpoints for public order status lookup
 - [x] Write tests for order status tracking procedures (10 tests)
 
-### 11. Timesheet CSV Export
-- [ ] Add export button on Staff page
-- [ ] Export timesheet for selected date range
-- [ ] Include: staff name, date, clock-in, clock-out, hours, rate, total cost
-- [ ] Format suitable for payroll processing
-- [ ] Support filtering by staff member or role
+### 11. Timesheet CSV Export (Completed)
+- [x] Add export button on Staff page
+- [x] Export timesheet for selected date range
+- [x] Include: staff name, date, clock-in, clock-out, hours, rate, total cost
+- [x] Format suitable for payroll processing
+- [x] Support filtering by staff member or role
+- [x] Add 4 database helpers for timesheet data retrieval and calculations
+- [x] Add 4 tRPC endpoints for timesheet export
+- [x] Create TimesheetExport component with date range and filter UI
+- [x] Write tests for timesheet procedures (8 tests)
 
 ### 12. Daypart/Dynamic Pricing
 - [ ] Add daypart management (breakfast, lunch, dinner, happy hour, etc.)

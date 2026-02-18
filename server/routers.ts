@@ -732,7 +732,6 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
   }),
 });
 
-export type AppRouter = typeof appRouter;
 
   orderTracking: router({
     getByOrderNumber: publicProcedure.input(z.object({ orderNumber: z.string() }))
@@ -757,4 +756,54 @@ export type AppRouter = typeof appRouter;
     updateStatus: protectedProcedure.input(z.object({ orderId: z.number(), status: z.string() }))
       .mutation(({ input }) => db.updateOrderStatus(input.orderId, input.status)),
   }),
+  timesheet: router({
+    getTimesheetData: protectedProcedure
+      .input(
+        z.object({
+          startDate: z.date(),
+          endDate: z.date(),
+          staffId: z.number().optional(),
+          role: z.string().optional(),
+        })
+      )
+      .query(({ input }) =>
+        db.getTimesheetData(input.startDate, input.endDate, input.staffId, input.role)
+      ),
+    getTimesheetSummary: protectedProcedure
+      .input(
+        z.object({
+          startDate: z.date(),
+          endDate: z.date(),
+          staffId: z.number().optional(),
+          role: z.string().optional(),
+        })
+      )
+      .query(({ input }) =>
+        db.calculateTimesheetSummary(input.startDate, input.endDate, input.staffId, input.role)
+      ),
+    exportCSV: protectedProcedure
+      .input(
+        z.object({
+          startDate: z.date(),
+          endDate: z.date(),
+          staffId: z.number().optional(),
+          role: z.string().optional(),
+        })
+      )
+      .query(({ input }) =>
+        db.generateTimesheetCSV(input.startDate, input.endDate, input.staffId, input.role)
+      ),
+    getStaffStats: protectedProcedure
+      .input(
+        z.object({
+          staffId: z.number(),
+          startDate: z.date(),
+          endDate: z.date(),
+        })
+      )
+      .query(({ input }) =>
+        db.getStaffTimesheetStats(input.staffId, input.startDate, input.endDate)
+      ),
+  }),
 });
+export type AppRouter = typeof appRouter;

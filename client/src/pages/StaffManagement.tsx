@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TimesheetExport } from "@/components/TimesheetExport";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
-import { Plus, Pencil, Trash2, Users, Clock, CalendarDays, LogIn, LogOut } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Clock, CalendarDays, LogIn, LogOut, Download } from "lucide-react";
 
 export default function StaffManagement() {
   const utils = trpc.useUtils();
@@ -99,6 +100,7 @@ export default function StaffManagement() {
           <TabsTrigger value="team"><Users className="h-4 w-4 mr-1" /> Team</TabsTrigger>
           <TabsTrigger value="clock"><Clock className="h-4 w-4 mr-1" /> Time Clock</TabsTrigger>
           <TabsTrigger value="schedule"><CalendarDays className="h-4 w-4 mr-1" /> Schedule</TabsTrigger>
+          <TabsTrigger value="timesheet"><Download className="h-4 w-4 mr-1" /> Timesheet Export</TabsTrigger>
         </TabsList>
 
         <TabsContent value="team" className="mt-4">
@@ -173,6 +175,9 @@ export default function StaffManagement() {
         </TabsContent>
 
         <TabsContent value="schedule" className="mt-4">
+        <TabsContent value="timesheet" className="mt-4">
+          <TimesheetExport staffList={staffData || []} />
+        </TabsContent>
           <div className="flex justify-end mb-4">
             <Button size="sm" onClick={() => { setShiftForm({ staffId: staffList?.[0]?.id ? String(staffList[0].id) : "", date: weekDates[0], startTime: "09:00", endTime: "17:00" }); setShowShiftDialog(true); }}>
               <Plus className="h-4 w-4 mr-1" /> Add Shift

@@ -1740,3 +1740,138 @@ export async function getOrderNotificationHistory(orderId: number) {
     status: order[0].status,
   };
 }
+
+// ─── Timesheet & Payroll ───────────────────────────────────────────
+export async function getTimesheetData(
+  startDate: Date,
+  endDate: Date,
+  staffId?: number,
+  role?: string
+) {
+  let query = db
+    .select({
+      staffId: shifts.staffId,
+      staffName: staff.name,
+      staffRole: staff.role,
+      shiftDate: shifts.date,
+      clockIn: shifts.clockIn,
+      clockOut: shifts.clockOut,
+      hoursWorked: shifts.hoursWorked,
+      hourlyRate: shifts.hourlyRate,
+      totalCost: shifts.totalCost,
+    })
+    .from(shifts)
+    .innerJoin(staff, eq(shifts.staffId, staff.id))
+    .where(
+      and(
+        gte(shifts.date, startDate),
+        lte(shifts.date, endDate),
+        eq(shifts.status, "completed")
+      )
+    );
+
+  if (staffId) {
+    query = query.where(eq(shifts.staffId, staffId));
+  }
+
+  if (role) {
+    query = query.where(eq(staff.role, role));
+  }
+
+  return await query.orderBy(shifts.date, staff.name);
+}
+
+export async function calculateTimesheetSummary(
+  startDate: Date,
+  endDate: Date,
+  staffId?: number,
+  role?: string
+) {
+  const timesheetData = await getTimesheetData(startDate, endDate, staffId, role);
+
+  const summary = {
+    totalStaff: new Set(timesheetData.map((t) => t.staffId)).size,
+    totalHours: timesheetData.reduce((sum, t) => sum + (t.hoursWorked || 0), 0),
+    totalLabourCost: timesheetData.reduce((sum, t) => sum + (t.totalCost || 0), 0),
+    averageHourlyRate:
+      timesheetData.length > 0
+        ? timesheetData.reduce((sum, t) => sum + (t.hourlyRate || 0), 0) /
+          timesheetData.length
+        : 0,
+    entries: timesheetData,
+  };
+
+  return summary;
+}
+
+export async function generateTimesheetCSV(
+  startDate: Date,
+  endDate: Date,
+  staffId?: number,
+  role?: string
+) {
+  const summary = await calculateTimesheetSummary(startDate, endDate, staffId, role);
+
+  // CSV Header
+  const headers = [
+    "Staff Name",
+    "Role",
+    "Date",
+    "Clock In",
+    "Clock Out",
+    "Hours Worked",
+    "Hourly Rate",
+    "Total Cost",
+  ];
+
+  // CSV Rows
+  const rows = summary.entries.map((entry) => [
+    entry.staffName,
+    entry.staffRole,
+    entry.shiftDate.toISOString().split("T")[0],
+    entry.clockIn ? new Date(entry.clockIn).toLocaleTimeString() : "",
+    entry.clockOut ? new Date(entry.clockOut).toLocaleTimeString() : "",
+    entry.hoursWorked?.toFixed(2) || "0",
+    entry.hourlyRate?.toFixed(2) || "0",
+    entry.totalCost?.toFixed(2) || "0",
+  ]);
+
+  // Summary rows
+  rows.push([]);
+  rows.push(["SUMMARY"]);
+  rows.push(["Total Staff", summary.totalStaff.toString()]);
+  rows.push(["Total Hours", summary.totalHours.toFixed(2)]);
+  rows.push(["Total Labour Cost", `$${summary.totalLabourCost.toFixed(2)}`]);
+  rows.push(["Average Hourly Rate", `$${summary.averageHourlyRate.toFixed(2)}`]);
+
+  // Build CSV string
+  let csv = headers.join(",") + "\n";
+  csv += rows.map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
+
+  return csv;
+}
+
+export async function getStaffTimesheetStats(staffId: number, startDate: Date, endDate: Date) {
+  const data = await db
+    .select({
+      totalHours: shifts.hoursWorked,
+      totalCost: shifts.totalCost,
+      shiftCount: shifts.id,
+    })
+    .from(shifts)
+    .where(
+      and(
+        eq(shifts.staffId, staffId),
+        gte(shifts.date, startDate),
+        lte(shifts.date, endDate),
+        eq(shifts.status, "completed")
+      )
+    );
+
+  return {
+    totalShifts: data.length,
+    totalHours: data.reduce((sum, d) => sum + (d.totalHours || 0), 0),
+    totalLabourCost: data.reduce((sum, d) => sum + (d.totalCost || 0), 0),
+    averageHoursPerShift: data.length > 0 ? data.reduce((sum, d) => sum + (d.totalHours || 0), 0) / data.length : 0,
+  };
+}
