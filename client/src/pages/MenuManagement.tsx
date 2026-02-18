@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { useState } from "react";
-import { Plus, Pencil, Trash2, UtensilsCrossed, FolderOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, UtensilsCrossed, FolderOpen, Calculator, RefreshCw } from "lucide-react";
 
 export default function MenuManagement() {
   const utils = trpc.useUtils();
@@ -34,6 +34,13 @@ export default function MenuManagement() {
   const [itemForm, setItemForm] = useState({ name: "", description: "", price: "", cost: "", categoryId: "", station: "general", prepTime: "10", isAvailable: true, isPopular: false });
 
   const [selectedCat, setSelectedCat] = useState<number | null>(null);
+  const [costAnalysis, setCostAnalysis] = useState<any>(null);
+  const [showCostAnalysis, setShowCostAnalysis] = useState(false);
+  const updateCost = trpc.menu.updateCost.useMutation({ onSuccess: () => utils.menu.list.invalidate() });
+  const getCostAnalysis = trpc.menu.getCostAnalysis.useQuery(
+    { menuItemId: costAnalysis?.id || 0 },
+    { enabled: costAnalysis !== null }
+  );
 
   const openCatDialog = (cat?: any) => {
     setEditCat(cat || null);
@@ -147,7 +154,14 @@ export default function MenuManagement() {
                       </td>
                       <td className="p-4 text-sm">{cat?.name || "-"}</td>
                       <td className="p-4 text-sm font-medium">${Number(item.price).toFixed(2)}</td>
-                      <td className="p-4 text-sm text-muted-foreground">${Number(item.cost || 0).toFixed(2)}</td>
+                      <td className="p-4 text-sm text-muted-foreground">
+                        <div className="flex items-center justify-between gap-2">
+                          <span>${Number(item.cost || 0).toFixed(2)}</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setCostAnalysis(item); setShowCostAnalysis(true); }}>
+                            <Calculator className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </td>
                       <td className="p-4"><Badge variant="outline" className="capitalize text-xs">{item.station}</Badge></td>
                       <td className="p-4">
                         <Badge className={item.isAvailable ? "badge-success" : "badge-danger"}>
@@ -230,6 +244,56 @@ export default function MenuManagement() {
             </div>
           </div>
           <DialogFooter><Button onClick={saveItem}>Save</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCostAnalysis} onOpenChange={setShowCostAnalysis}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Cost Analysis - {costAnalysis?.name}</DialogTitle>
+          </DialogHeader>
+          {getCostAnalysis.data && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-4 gap-4 p-4 bg-accent rounded-lg">
+                <div>
+                  <p className="text-xs text-muted-foreground">Price</p>
+                  <p className="text-lg font-bold">${getCostAnalysis.data.price.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Cost</p>
+                  <p className="text-lg font-bold">${getCostAnalysis.data.cost.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Margin</p>
+                  <p className="text-lg font-bold">${getCostAnalysis.data.margin.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Margin %</p>
+                  <p className="text-lg font-bold text-success">{getCostAnalysis.data.marginPercent}%</p>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-3">Recipe Breakdown</h4>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {getCostAnalysis.data.recipeBreakdown.map((r: any) => (
+                    <div key={r.ingredientId} className="flex justify-between text-sm p-2 border border-border/50 rounded">
+                      <div>
+                        <p className="font-medium">{r.ingredientName}</p>
+                        <p className="text-xs text-muted-foreground">{r.quantity} {r.unit} @ ${r.costPerUnit.toFixed(4)}/unit</p>
+                      </div>
+                      <p className="font-semibold">${r.totalCost.toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { updateCost.mutate({ menuItemId: costAnalysis.id }); toast.success("Cost updated"); setShowCostAnalysis(false); }} disabled={updateCost.isPending}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Update Cost
+            </Button>
+            <Button onClick={() => setShowCostAnalysis(false)}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -102,6 +102,10 @@ export const appRouter = router({
       sortOrder: z.number().optional(),
     })).mutation(({ input }) => { const { id, ...data } = input; return db.updateMenuItem(id, data); }),
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteMenuItem(input.id)),
+    calculateCost: protectedProcedure.input(z.object({ menuItemId: z.number() })).query(({ input }) => db.calculateMenuItemCost(input.menuItemId)),
+    updateCost: protectedProcedure.input(z.object({ menuItemId: z.number() })).mutation(({ input }) => db.updateMenuItemCost(input.menuItemId)),
+    updateAllCosts: adminProcedure.mutation(() => db.updateAllMenuItemCosts()),
+    getCostAnalysis: protectedProcedure.input(z.object({ menuItemId: z.number() })).query(({ input }) => db.getMenuItemCostAnalysis(input.menuItemId)),
   }),
 
   // ─── Modifiers ───────────────────────────────────────────────────

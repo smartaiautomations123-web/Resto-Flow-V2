@@ -1333,3 +1333,121 @@ export async function createOrderFromCustomerOrder(
 
   return newOrderId;
 }
+
+// ─── Automatic Plate Cost Calculation ────────────────────────────────
+export async function calculateMenuItemCost(menuItemId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Get all recipes for this menu item
+  const recipeList = await db
+    .select({
+      ingredientId: recipes.ingredientId,
+      quantity: recipes.quantity,
+      costPerUnit: ingredients.costPerUnit,
+    })
+    .from(recipes)
+    .innerJoin(ingredients, eq(recipes.ingredientId, ingredients.id))
+    .where(eq(recipes.menuItemId, menuItemId));
+
+  // Calculate total cost: sum(ingredient.costPerUnit * recipe.quantity)
+  let totalCost = 0;
+  for (const recipe of recipeList) {
+    const ingredientCost = Number(recipe.costPerUnit) * Number(recipe.quantity);
+    totalCost += ingredientCost;
+  }
+
+  return totalCost;
+}
+
+export async function updateMenuItemCost(menuItemId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const calculatedCost = await calculateMenuItemCost(menuItemId);
+
+  // Update the menu item's cost field
+  await db
+    .update(menuItems)
+    .set({ cost: calculatedCost.toString() })
+    .where(eq(menuItems.id, menuItemId));
+
+  return calculatedCost;
+}
+
+export async function updateAllMenuItemCosts(): Promise<{ updated: number; items: Array<{ id: number; name: string; cost: number }> }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const allItems = await db.select().from(menuItems);
+  const updated: Array<{ id: number; name: string; cost: number }> = [];
+
+  for (const item of allItems) {
+    const calculatedCost = await calculateMenuItemCost(item.id);
+    await db
+      .update(menuItems)
+      .set({ cost: calculatedCost.toString() })
+      .where(eq(menuItems.id, item.id));
+
+    updated.push({
+      id: item.id,
+      name: item.name,
+      cost: calculatedCost,
+    });
+  }
+
+  return {
+    updated: updated.length,
+    items: updated,
+  };
+}
+
+export async function getMenuItemCostAnalysis(menuItemId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const item = await db
+    .select()
+    .from(menuItems)
+    .where(eq(menuItems.id, menuItemId))
+    .limit(1);
+
+  if (item.length === 0) return null;
+
+  const menuItem = item[0];
+  const price = Number(menuItem.price);
+  const cost = Number(menuItem.cost);
+  const margin = price - cost;
+  const marginPercent = price > 0 ? (margin / price) * 100 : 0;
+
+  // Get recipe breakdown
+  const recipeBreakdown = await db
+    .select({
+      ingredientId: recipes.ingredientId,
+      ingredientName: ingredients.name,
+      unit: ingredients.unit,
+      quantity: recipes.quantity,
+      costPerUnit: ingredients.costPerUnit,
+      totalCost: sql<number>`CAST(${recipes.quantity} * ${ingredients.costPerUnit} AS DECIMAL(10, 4))`,
+    })
+    .from(recipes)
+    .innerJoin(ingredients, eq(recipes.ingredientId, ingredients.id))
+    .where(eq(recipes.menuItemId, menuItemId));
+
+  return {
+    id: menuItem.id,
+    name: menuItem.name,
+    price,
+    cost,
+    margin,
+    marginPercent: Math.round(marginPercent * 100) / 100,
+    recipeBreakdown: recipeBreakdown.map(r => ({
+      ingredientId: r.ingredientId,
+      ingredientName: r.ingredientName,
+      quantity: Number(r.quantity),
+      unit: r.unit,
+      costPerUnit: Number(r.costPerUnit),
+      totalCost: Number(r.totalCost),
+    })),
+  };
+}

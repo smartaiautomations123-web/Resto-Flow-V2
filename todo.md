@@ -81,13 +81,15 @@
 - [ ] Add "repeat order" quick action
 - [ ] Link from Customers list to detail view
 
-### 5. Automatic Plate Cost Calculation
-- [ ] Backend: Add procedure to calculate menu item cost from linked recipes
-- [ ] Calculate cost = sum(ingredient.costPerUnit * recipe.quantity)
-- [ ] Update menu item's `cost` field when recipes change
-- [ ] Add cost calculation to menu management UI
-- [ ] Show calculated cost vs manual cost in menu editor
-- [ ] Add cost margin % display (price - cost) / price * 100
+### 5. Automatic Plate Cost Calculation (Completed)
+- [x] Backend: Add procedure to calculate menu item cost from linked recipes
+- [x] Calculate cost = sum(ingredient.costPerUnit * recipe.quantity)
+- [x] Update menu item's `cost` field when recipes change
+- [x] Add cost calculation to menu management UI
+- [x] Show calculated cost vs manual cost in menu editor
+- [x] Add cost margin % display (price - cost) / price * 100
+- [x] Display recipe breakdown with ingredient costs
+- [x] Write tests for cost calculation procedures (8 tests, all passing)
 
 ---
 
