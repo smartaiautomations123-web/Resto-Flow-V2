@@ -303,6 +303,28 @@ export const appRouter = router({
     })).mutation(({ input }) => { const { id, ...data } = input; return db.updateReservation(id, data); }),
   }),
 
+  // ─── Waitlist ────────────────────────────────────────────────────
+  waitlist: router({
+    queue: protectedProcedure.query(() => db.getWaitlistQueue()),
+    add: protectedProcedure.input(z.object({
+      guestName: z.string(),
+      guestPhone: z.string().optional(),
+      guestEmail: z.string().optional(),
+      partySize: z.number(),
+      customerId: z.number().optional(),
+      notes: z.string().optional(),
+    })).mutation(({ input }) => db.addToWaitlist(input)),
+    get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getWaitlistEntry(input.id)),
+    updateStatus: protectedProcedure.input(z.object({
+      id: z.number(),
+      status: z.enum(["waiting", "called", "seated", "cancelled"]),
+    })).mutation(({ input }) => db.updateWaitlistStatus(input.id, input.status)),
+    remove: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.removeFromWaitlist(input.id)),
+    promote: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.promoteFromWaitlist(input.id)),
+    stats: protectedProcedure.query(() => db.getWaitlistStats()),
+    estimatedWaitTime: publicProcedure.query(() => db.getEstimatedWaitTime()),
+  }),
+
   // ─── Reporting ───────────────────────────────────────────────────
   reports: router({
     salesStats: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))

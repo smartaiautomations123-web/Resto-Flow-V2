@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
-import { Plus, CalendarDays, Clock, Users, CheckCircle2, X } from "lucide-react";
+import { Plus, CalendarDays, Clock, Users, CheckCircle2, X, AlertCircle } from "lucide-react";
 
 export default function Reservations() {
   const utils = trpc.useUtils();
@@ -62,9 +62,14 @@ export default function Reservations() {
           <h1 className="text-2xl font-bold tracking-tight">Reservations</h1>
           <p className="text-muted-foreground mt-1">Manage table reservations and seating.</p>
         </div>
-        <Button onClick={() => { setForm({ customerName: "", customerPhone: "", customerEmail: "", date: today, time: "19:00", partySize: "2", tableId: "", notes: "" }); setShowDialog(true); }}>
-          <Plus className="h-4 w-4 mr-2" /> New Reservation
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => { setForm({ customerName: "", customerPhone: "", customerEmail: "", date: today, time: "19:00", partySize: "2", tableId: "", notes: "" }); setShowDialog(true); }}>
+            <Plus className="h-4 w-4 mr-2" /> New Reservation
+          </Button>
+          <Button variant="outline" onClick={() => window.location.href = '/waitlist'}>
+            <AlertCircle className="h-4 w-4 mr-2" /> Manage Waitlist
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-4">

@@ -281,6 +281,24 @@ export const reservations = mysqlTable("reservations", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+// ─── Waitlist ────────────────────────────────────────────────────────
+export const waitlist = mysqlTable("waitlist", {
+  id: int("id").autoincrement().primaryKey(),
+  customerId: int("customerId"),
+  guestName: varchar("guestName", { length: 255 }).notNull(),
+  guestPhone: varchar("guestPhone", { length: 32 }),
+  guestEmail: varchar("guestEmail", { length: 320 }),
+  partySize: int("partySize").notNull(),
+  estimatedWaitTime: int("estimatedWaitTime").default(0), // in minutes
+  status: mysqlEnum("status", ["waiting", "called", "seated", "cancelled"]).default("waiting").notNull(),
+  notes: text("notes"),
+  position: int("position").notNull(), // position in queue
+  smsNotificationSent: boolean("smsNotificationSent").default(false),
+  smsNotificationSentAt: timestamp("smsNotificationSentAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 // ─── Vendor Products (per-vendor product catalog) ───────────────────
 export const vendorProducts = mysqlTable("vendor_products", {
   id: int("id").autoincrement().primaryKey(),

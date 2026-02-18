@@ -1,4 +1,4 @@
-import { eq, desc, asc, and, gte, lte, sql, isNull, ne, like } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, sql, isNull, ne, like, gt } from "drizzle-orm";
 import { drizzle, MySql2Database } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import {
@@ -8,7 +8,7 @@ import {
   sections, tables, orders, orderItems,
   ingredients, recipes,
   suppliers, purchaseOrders, purchaseOrderItems,
-  customers, reservations,
+  customers, reservations, waitlist,
   vendorProducts, vendorProductMappings, priceUploads, priceUploadItems, priceHistory,
   zReports, zReportItems, zReportShifts,
   voidAuditLog, InsertVoidAuditLog,
@@ -1449,5 +1449,182 @@ export async function getMenuItemCostAnalysis(menuItemId: number) {
       costPerUnit: Number(r.costPerUnit),
       totalCost: Number(r.totalCost),
     })),
+  };
+}
+
+// ─── Waitlist ────────────────────────────────────────────────────────
+export async function addToWaitlist(data: {
+  guestName: string;
+  guestPhone?: string;
+  guestEmail?: string;
+  partySize: number;
+  customerId?: number;
+  notes?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Get current queue length to set position
+  const currentQueue = await db.select({ count: sql<number>`COUNT(*)` }).from(waitlist).where(eq(waitlist.status, "waiting"));
+  const position = (currentQueue[0]?.count || 0) + 1;
+
+  // Calculate estimated wait time: 15 minutes per party ahead + 5 minute base
+  const estimatedWaitTime = position * 15 + 5;
+
+  const result = await db.insert(waitlist).values({
+    guestName: data.guestName,
+    guestPhone: data.guestPhone,
+    guestEmail: data.guestEmail,
+    partySize: data.partySize,
+    customerId: data.customerId,
+    notes: data.notes,
+    position,
+    estimatedWaitTime,
+    status: "waiting",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  return result[0].insertId;
+}
+
+export async function getWaitlistQueue() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .select()
+    .from(waitlist)
+    .where(eq(waitlist.status, "waiting"))
+    .orderBy(asc(waitlist.position));
+}
+
+export async function getWaitlistEntry(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db
+    .select()
+    .from(waitlist)
+    .where(eq(waitlist.id, id))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+export async function updateWaitlistStatus(id: number, status: "waiting" | "called" | "seated" | "cancelled") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(waitlist)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(waitlist.id, id));
+}
+
+export async function removeFromWaitlist(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.delete(waitlist).where(eq(waitlist.id, id));
+}
+
+export async function updateWaitlistPosition(id: number, newPosition: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Recalculate estimated wait time based on new position
+  const estimatedWaitTime = newPosition * 15 + 5;
+
+  await db
+    .update(waitlist)
+    .set({ position: newPosition, estimatedWaitTime, updatedAt: new Date() })
+    .where(eq(waitlist.id, id));
+}
+
+export async function markSmsNotificationSent(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(waitlist)
+    .set({ smsNotificationSent: true, smsNotificationSentAt: new Date(), updatedAt: new Date() })
+    .where(eq(waitlist.id, id));
+}
+
+export async function getEstimatedWaitTime() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Get all waiting parties
+  const waitingParties = await db
+    .select()
+    .from(waitlist)
+    .where(eq(waitlist.status, "waiting"))
+    .orderBy(asc(waitlist.position));
+
+  if (waitingParties.length === 0) {
+    return 0; // No wait if queue is empty
+  }
+
+  // Calculate based on average order completion time (15 min per party)
+  return waitingParties.length * 15 + 5;
+}
+
+export async function promoteFromWaitlist(waitlistId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Get the waitlist entry
+  const entry = await getWaitlistEntry(waitlistId);
+  if (!entry) throw new Error("Waitlist entry not found");
+
+  // Mark as called
+  await updateWaitlistStatus(waitlistId, "called");
+
+  // Get all waiting entries with higher position
+  const higherPositions = await db
+    .select()
+    .from(waitlist)
+    .where(and(eq(waitlist.status, "waiting"), gt(waitlist.position, entry.position)))
+    .orderBy(asc(waitlist.position));
+
+  // Move everyone up one position
+  for (const item of higherPositions) {
+    await updateWaitlistPosition(item.id, item.position - 1);
+  }
+
+  return entry;
+}
+
+export async function getWaitlistStats() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const waiting = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(waitlist)
+    .where(eq(waitlist.status, "waiting"));
+
+  const called = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(waitlist)
+    .where(eq(waitlist.status, "called"));
+
+  const seated = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(waitlist)
+    .where(eq(waitlist.status, "seated"));
+
+  const avgWaitTime = await db
+    .select({ avg: sql<number>`AVG(${waitlist.estimatedWaitTime})` })
+    .from(waitlist)
+    .where(eq(waitlist.status, "waiting"));
+
+  return {
+    waitingCount: waiting[0]?.count || 0,
+    calledCount: called[0]?.count || 0,
+    seatedCount: seated[0]?.count || 0,
+    averageWaitTime: Math.round(avgWaitTime[0]?.avg || 0),
   };
 }

@@ -23,6 +23,7 @@ import ZReports from "./pages/ZReports";
 import VoidRefunds from "./pages/VoidRefunds";
 import QRCodeGenerator from "./pages/QRCodeGenerator";
 import CustomerDetail from "./pages/CustomerDetail";
+import Waitlist from "./pages/Waitlist";
 
 function Router() {
   return (
@@ -47,6 +48,7 @@ function Router() {
       <Route path="/z-reports" component={() => <DashboardLayout><ZReports /></DashboardLayout>} />
       <Route path="/void-refunds" component={() => <DashboardLayout><VoidRefunds /></DashboardLayout>} />
       <Route path="/qr-codes" component={() => <DashboardLayout><QRCodeGenerator /></DashboardLayout>} />
+      <Route path="/waitlist" component={() => <DashboardLayout><Waitlist /></DashboardLayout>} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
