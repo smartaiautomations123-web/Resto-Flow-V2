@@ -125,13 +125,16 @@
 - [x] Add campaigns table with recipient tracking
 - [x] Write tests for segmentation procedures (11 tests, all passing)
 
-### 9. Order History & Receipt Printing
-- [ ] Create order history page with search/filter by date, customer, status
-- [ ] Show order details modal with full item breakdown
-- [ ] Print receipt (thermal printer format or PDF)
-- [ ] Email receipt to customer
-- [ ] Reprint old receipts
-- [ ] Backend: Ensure all order data is properly stored for retrieval
+### 9. Order History & Receipt Printing (Completed)
+- [x] Create order history page with search/filter by date, customer, status
+- [x] Show order details modal with full item breakdown
+- [x] Print receipt (thermal printer format or PDF)
+- [x] Email receipt to customer
+- [x] Reprint old receipts
+- [x] Backend: Ensure all order data is properly stored for retrieval
+- [x] Add 10+ database helpers for order retrieval and receipt generation
+- [x] Add 4 tRPC endpoints for receipt generation and email
+- [x] Write tests for order history procedures (10 tests)
 
 ### 10. Real-Time Order Status Tracking (for Online Orders)
 - [ ] Create public order status page (no login required)

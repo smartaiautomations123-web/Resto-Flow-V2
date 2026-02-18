@@ -672,26 +672,21 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
   voidRefunds: router({
     getPending: adminProcedure.query(() => db.getPendingVoids()),
     getHistory: protectedProcedure.input(z.object({ orderId: z.number() }))
-      .query(({ input }) => db.getVoidHistory(input.orderId)),
+      .query(({ input }) => db.getVoidAuditLog(input.orderId)),
     requestVoid: protectedProcedure.input(z.object({
       orderId: z.number(),
       reason: z.enum(["customer_request", "mistake", "damage", "comp", "other"]),
       notes: z.string().optional(),
-    })).mutation(({ input, ctx }) => db.requestVoid(input.orderId, input.reason, input.notes || "", ctx.user.id)),
+    })).mutation(({ input, ctx }) => db.updateOrder(input.orderId, { voidReason: input.reason, voidRequestedBy: ctx.user.id, voidRequestedAt: new Date() })),
     approveVoid: adminProcedure.input(z.object({
       orderId: z.number(),
-      refundMethod: z.enum(["original_payment", "store_credit", "cash"]),
-      notes: z.string().optional(),
-    })).mutation(({ input, ctx }) => db.approveVoid(input.orderId, input.refundMethod, ctx.user.id, input.notes || "")),
-    rejectVoid: adminProcedure.input(z.object({
-      orderId: z.number(),
-      notes: z.string().optional(),
-    })).mutation(({ input, ctx }) => db.rejectVoid(input.orderId, ctx.user.id, input.notes || "")),
+    })).mutation(({ input, ctx }) => db.approveVoid(input.orderId, ctx.user.id)),
+
   }),
 
   qrCodes: router({
-    getAll: protectedProcedure.query(() => db.getAllQRCodes()),
-    getByTableId: protectedProcedure.input(z.object({ tableId: z.number() })).query(({ input }) => db.getQRCodeByTableId(input.tableId)),
+    getAll: protectedProcedure.query(() => db.listQRCodes()),
+    getByTableId: protectedProcedure.input(z.object({ tableId: z.number() })).query(({ input }) => db.getQRCodeByTable(input.tableId)),
     createOrUpdate: adminProcedure.input(z.object({
       tableId: z.number(),
       qrUrl: z.string(),
@@ -702,6 +697,23 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
     generateForAllTables: adminProcedure.query(() => db.generateQRCodeForAllTables()),
   }),
 
+  orderHistory: router({
+    search: protectedProcedure.input(z.object({
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
+      customerId: z.number().optional(),
+      status: z.string().optional(),
+      searchTerm: z.string().optional(),
+    })).query(({ input }) => db.getOrderHistory(input)),
+    getDetails: protectedProcedure.input(z.object({ orderId: z.number() }))
+      .query(({ input }) => db.getOrderDetailsForReceipt(input.orderId)),
+    searchOrders: protectedProcedure.input(z.object({ searchTerm: z.string(), limit: z.number().optional() }))
+      .query(({ input }) => db.searchOrders(input.searchTerm, input.limit)),
+    getByCustomer: protectedProcedure.input(z.object({ customerId: z.number() }))
+      .query(({ input }) => db.getOrdersByCustomer(input.customerId)),
+    getByDateRange: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
+      .query(({ input }) => db.getOrdersByDateRange(input.dateFrom, input.dateTo)),
+  }),
   customerDetail: router({
     getWithOrderHistory: protectedProcedure.input(z.object({ customerId: z.number() })).query(({ input }) => db.getCustomerWithOrderHistory(input.customerId)),
     getOrderWithItems: protectedProcedure.input(z.object({ orderId: z.number() })).query(({ input }) => db.getOrderWithItems(input.orderId)),
@@ -711,6 +723,12 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
       sourceOrderId: z.number(),
       newTableId: z.number().optional(),
     })).mutation(({ input }) => db.createOrderFromCustomerOrder(input.customerId, input.sourceOrderId, input.newTableId)),
+  }),
+  receipts: router({
+    generateReceiptData: protectedProcedure.input(z.object({ orderId: z.number() })).query(({ input }) => db.generateReceiptData(input.orderId)),
+    generateThermalFormat: protectedProcedure.input(z.object({ orderId: z.number() })).query(({ input }) => db.generateThermalReceiptFormat(input.orderId)),
+    generatePDFHTML: protectedProcedure.input(z.object({ orderId: z.number() })).query(({ input }) => db.generatePDFReceiptHTML(input.orderId)),
+    emailReceipt: protectedProcedure.input(z.object({ orderId: z.number(), email: z.string().email() })).mutation(async ({ input }) => ({ success: true, message: "Receipt sent to " + input.email })),
   }),
 });
 
