@@ -341,6 +341,24 @@ export const appRouter = router({
       .query(({ input }) => db.getOrdersByType(input.dateFrom, input.dateTo)),
   }),
 
+  // ─── Profitability Analysis ──────────────────────────────────────
+  profitability: router({
+    byItem: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
+      .query(({ input }) => db.getProfitabilityByItem(input.dateFrom, input.dateTo)),
+    byCategory: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
+      .query(({ input }) => db.getProfitabilityByCategory(input.dateFrom, input.dateTo)),
+    byShift: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
+      .query(({ input }) => db.getProfitabilityByShift(input.dateFrom, input.dateTo)),
+    topItems: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string(), limit: z.number().optional() }))
+      .query(({ input }) => db.getTopProfitableItems(input.dateFrom, input.dateTo, input.limit)),
+    bottomItems: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string(), limit: z.number().optional() }))
+      .query(({ input }) => db.getBottomProfitableItems(input.dateFrom, input.dateTo, input.limit)),
+    trends: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
+      .query(({ input }) => db.getProfitTrends(input.dateFrom, input.dateTo)),
+    summary: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
+      .query(({ input }) => db.getProfitabilitySummary(input.dateFrom, input.dateTo)),
+  }),
+
   // ─── Online ordering (public) ────────────────────────────────────
   online: router({
     menu: publicProcedure.query(async () => {

@@ -24,6 +24,7 @@ import VoidRefunds from "./pages/VoidRefunds";
 import QRCodeGenerator from "./pages/QRCodeGenerator";
 import CustomerDetail from "./pages/CustomerDetail";
 import Waitlist from "./pages/Waitlist";
+import Profitability from "./pages/Profitability";
 
 function Router() {
   return (
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/void-refunds" component={() => <DashboardLayout><VoidRefunds /></DashboardLayout>} />
       <Route path="/qr-codes" component={() => <DashboardLayout><QRCodeGenerator /></DashboardLayout>} />
       <Route path="/waitlist" component={() => <DashboardLayout><Waitlist /></DashboardLayout>} />
+      <Route path="/profitability" component={() => <DashboardLayout><Profitability /></DashboardLayout>} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

@@ -1628,3 +1628,243 @@ export async function getWaitlistStats() {
     averageWaitTime: Math.round(avgWaitTime[0]?.avg || 0),
   };
 }
+
+
+// ─── Profitability Analysis ──────────────────────────────────────────
+export async function getProfitabilityByItem(dateFrom: string, dateTo: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const results = await db
+    .select({
+      itemId: orderItems.menuItemId,
+      itemName: menuItems.name,
+      quantity: sql<number>`SUM(${orderItems.quantity})`,
+      revenue: sql<number>`SUM(${orderItems.totalPrice})`,
+      cogs: sql<number>`SUM(${menuItems.cost} * ${orderItems.quantity})`,
+    })
+    .from(orderItems)
+    .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .where(
+      and(
+        gte(orders.createdAt, new Date(dateFrom)),
+        lte(orders.createdAt, new Date(dateTo)),
+        eq(orders.status, "completed")
+      )
+    )
+    .groupBy(orderItems.menuItemId, menuItems.name);
+
+  return results.map((r) => ({
+    itemId: r.itemId,
+    itemName: r.itemName,
+    quantity: r.quantity || 0,
+    revenue: Number(r.revenue) || 0,
+    cogs: Number(r.cogs) || 0,
+    grossProfit: (Number(r.revenue) || 0) - (Number(r.cogs) || 0),
+    profitMargin: (Number(r.revenue) || 0) > 0 ? (((Number(r.revenue) || 0) - (Number(r.cogs) || 0)) / (Number(r.revenue) || 0)) * 100 : 0,
+  }));
+}
+
+export async function getProfitabilityByCategory(dateFrom: string, dateTo: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const results = await db
+    .select({
+      categoryId: menuCategories.id,
+      categoryName: menuCategories.name,
+      quantity: sql<number>`SUM(${orderItems.quantity})`,
+      revenue: sql<number>`SUM(${orderItems.totalPrice})`,
+      cogs: sql<number>`SUM(${menuItems.cost} * ${orderItems.quantity})`,
+    })
+    .from(orderItems)
+    .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+    .innerJoin(menuCategories, eq(menuItems.categoryId, menuCategories.id))
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .where(
+      and(
+        gte(orders.createdAt, new Date(dateFrom)),
+        lte(orders.createdAt, new Date(dateTo)),
+        eq(orders.status, "completed")
+      )
+    )
+    .groupBy(menuCategories.id, menuCategories.name);
+
+  return results.map((r) => ({
+    categoryId: r.categoryId,
+    categoryName: r.categoryName,
+    quantity: r.quantity || 0,
+    revenue: Number(r.revenue) || 0,
+    cogs: Number(r.cogs) || 0,
+    grossProfit: (Number(r.revenue) || 0) - (Number(r.cogs) || 0),
+    profitMargin: (Number(r.revenue) || 0) > 0 ? (((Number(r.revenue) || 0) - (Number(r.cogs) || 0)) / (Number(r.revenue) || 0)) * 100 : 0,
+  }));
+}
+
+export async function getProfitabilityByShift(dateFrom: string, dateTo: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const results = await db
+    .select({
+      staffId: orders.staffId,
+      revenue: sql<number>`SUM(${orders.total})`,
+      cogs: sql<number>`SUM(${menuItems.cost} * ${orderItems.quantity})`,
+      discounts: sql<number>`SUM(${orders.discountAmount})`,
+      voids: sql<number>`SUM(CASE WHEN ${orders.status} = 'voided' THEN ${orders.total} ELSE 0 END)`,
+    })
+    .from(orders)
+    .leftJoin(orderItems, eq(orders.id, orderItems.orderId))
+    .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+    .where(
+      and(
+        gte(orders.createdAt, new Date(dateFrom)),
+        lte(orders.createdAt, new Date(dateTo)),
+        eq(orders.status, "completed")
+      )
+    )
+    .groupBy(orders.staffId);
+
+  // Get labour costs per staff member
+  const labourResults = await db
+    .select({
+      staffId: timeClock.staffId,
+      labourCost: sql<number>`SUM((TIMESTAMPDIFF(MINUTE, ${timeClock.clockIn}, COALESCE(${timeClock.clockOut}, NOW())) - COALESCE(${timeClock.breakMinutes}, 0)) / 60 * COALESCE(${staff.hourlyRate}, 0))`,
+    })
+    .from(timeClock)
+    .leftJoin(staff, eq(timeClock.staffId, staff.id))
+    .where(
+      and(
+        gte(timeClock.clockIn, new Date(dateFrom)),
+        lte(timeClock.clockIn, new Date(dateTo))
+      )
+    )
+    .groupBy(timeClock.staffId);
+
+  const labourMap = new Map(labourResults.map((r) => [r.staffId, Number(r.labourCost) || 0]));
+
+  return results.map((r) => {
+    const revenue = Number(r.revenue) || 0;
+    const cogs = Number(r.cogs) || 0;
+    const discounts = Number(r.discounts) || 0;
+    const labourCost = labourMap.get(r.staffId || 0) || 0;
+    const grossProfit = revenue - cogs;
+    const netProfit = grossProfit - labourCost - discounts;
+
+    return {
+      staffId: r.staffId || 0,
+      revenue,
+      cogs,
+      discounts,
+      labourCost,
+      grossProfit,
+      netProfit,
+      profitMargin: revenue > 0 ? (netProfit / revenue) * 100 : 0,
+    };
+  });
+}
+
+export async function getTopProfitableItems(dateFrom: string, dateTo: string, limit: number = 10) {
+  const items = await getProfitabilityByItem(dateFrom, dateTo);
+  return items.sort((a, b) => b.grossProfit - a.grossProfit).slice(0, limit);
+}
+
+export async function getBottomProfitableItems(dateFrom: string, dateTo: string, limit: number = 10) {
+  const items = await getProfitabilityByItem(dateFrom, dateTo);
+  return items.sort((a, b) => a.grossProfit - b.grossProfit).slice(0, limit);
+}
+
+export async function getProfitTrends(dateFrom: string, dateTo: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const results = await db
+    .select({
+      date: sql<string>`DATE(${orders.createdAt})`,
+      revenue: sql<number>`SUM(${orders.total})`,
+      cogs: sql<number>`SUM(${menuItems.cost} * ${orderItems.quantity})`,
+      discounts: sql<number>`SUM(${orders.discountAmount})`,
+      orderCount: sql<number>`COUNT(DISTINCT ${orders.id})`,
+    })
+    .from(orders)
+    .leftJoin(orderItems, eq(orders.id, orderItems.orderId))
+    .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+    .where(
+      and(
+        gte(orders.createdAt, new Date(dateFrom)),
+        lte(orders.createdAt, new Date(dateTo)),
+        eq(orders.status, "completed")
+      )
+    )
+    .groupBy(sql`DATE(${orders.createdAt})`)
+    .orderBy(asc(sql`DATE(${orders.createdAt})`));
+
+  return results.map((r) => {
+    const revenue = Number(r.revenue) || 0;
+    const cogs = Number(r.cogs) || 0;
+    const discounts = Number(r.discounts) || 0;
+    const grossProfit = revenue - cogs;
+    const netProfit = grossProfit - discounts;
+
+    return {
+      date: r.date,
+      revenue,
+      cogs,
+      discounts,
+      grossProfit,
+      netProfit,
+      profitMargin: revenue > 0 ? (netProfit / revenue) * 100 : 0,
+      orderCount: r.orderCount || 0,
+      avgOrderValue: r.orderCount ? revenue / r.orderCount : 0,
+    };
+  });
+}
+
+export async function getProfitabilitySummary(dateFrom: string, dateTo: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const summary = await db
+    .select({
+      totalRevenue: sql<number>`SUM(${orders.total})`,
+      totalCogs: sql<number>`SUM(${menuItems.cost} * ${orderItems.quantity})`,
+      totalDiscounts: sql<number>`SUM(${orders.discountAmount})`,
+      totalOrders: sql<number>`COUNT(DISTINCT ${orders.id})`,
+      totalItems: sql<number>`SUM(${orderItems.quantity})`,
+    })
+    .from(orders)
+    .leftJoin(orderItems, eq(orders.id, orderItems.orderId))
+    .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+    .where(
+      and(
+        gte(orders.createdAt, new Date(dateFrom)),
+        lte(orders.createdAt, new Date(dateTo)),
+        eq(orders.status, "completed")
+      )
+    );
+
+  const result = summary[0];
+  const totalRevenue = Number(result?.totalRevenue) || 0;
+  const totalCogs = Number(result?.totalCogs) || 0;
+  const totalDiscounts = Number(result?.totalDiscounts) || 0;
+  const totalOrders = Number(result?.totalOrders) || 0;
+  const totalItems = Number(result?.totalItems) || 0;
+
+  const grossProfit = totalRevenue - totalCogs;
+  const netProfit = grossProfit - totalDiscounts;
+
+  return {
+    totalRevenue,
+    totalCogs,
+    totalDiscounts,
+    grossProfit,
+    netProfit,
+    profitMargin: totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0,
+    cogsPercentage: totalRevenue > 0 ? (totalCogs / totalRevenue) * 100 : 0,
+    totalOrders,
+    totalItems,
+    avgOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+    avgItemPrice: totalItems > 0 ? totalRevenue / totalItems : 0,
+  };
+}

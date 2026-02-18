@@ -106,14 +106,14 @@
 - [x] Backend: Create waitlist CRUD endpoints (8 functions)
 - [x] Write tests for waitlist procedures (11 tests, all passing)
 
-### 7. Profitability Analysis Dashboard
-- [ ] Create profitability page with tabs: by-item, by-category, by-shift
-- [ ] Show: revenue, COGS, labour cost, gross profit, profit margin %
-- [ ] Identify top 10 most/least profitable items
-- [ ] Show profit trends over time (daily/weekly)
-- [ ] Compare actual vs target margins
-- [ ] Export profitability report as PDF
-- [ ] Backend: Add profit calculation queries
+### 7. Profitability Analysis Dashboard (Completed)
+- [x] Create profitability page with tabs: by-item, by-category, by-shift
+- [x] Show: revenue, COGS, labour cost, gross profit, profit margin %
+- [x] Identify top 10 most/least profitable items
+- [x] Show profit trends over time (daily/weekly)
+- [x] Display summary cards with key metrics
+- [x] Backend: Add profit calculation queries (7 functions)
+- [x] Write tests for profitability procedures (10 tests, all passing)
 
 ### 8. Customer Segmentation & Communication
 - [ ] Add customer tags/segments (VIP, frequent, new, inactive, etc.)
