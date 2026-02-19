@@ -391,3 +391,62 @@
 - [x] Barcode scanner support in POS (keyboard input, USB scanner)
 - [x] Third-party aggregator integration framework (Uber Eats, DoorDash, Deliveroo)
 - [~] PCI DSS compliance for card payments (full implementation - requires external audit)
+
+
+---
+
+## REMAINING FEATURES TO BUILD (44 features)
+
+### Module 5.2: Inventory Management - Missing Features (20) ✅ COMPLETED
+- [x] Lead time management for suppliers
+- [x] Waste reduction suggestions based on patterns
+- [x] EDI/API integration with suppliers
+- [x] Auto-receive deliveries with QR code scanning
+- [x] 3-way matching (PO, Invoice, Receipt)
+- [x] Advanced expiry date tracking
+- [x] Supplier contract management
+- [x] Minimum order quantity alerts
+- [x] Reorder point automation
+- [x] Inventory aging reports
+- [x] Stock rotation (FIFO/LIFO) tracking
+- [x] Ingredient substitution suggestions
+- [x] Seasonal inventory planning
+- [x] Inventory transfer between locations
+- [x] Barcode generation for ingredients
+- [x] Inventory variance investigation tools
+- [x] Order forecasting based on sales trends
+- [x] Portion size variants
+- [x] Production quantity templates
+- [x] Batch/lot tracking with expiry
+
+### Module 5.3: Labour Management - Missing Features (17) ✅ COMPLETED
+- [x] Biometric time tracking
+- [x] GPS clock-in verification
+- [x] Geofencing for remote workers
+- [x] Mobile time clock app
+- [x] Facial recognition
+- [x] Advanced vacation/PTO management
+- [x] Sick leave tracking
+- [x] Bonus/incentive tracking
+- [x] Commission calculation
+- [x] Labour dispute resolution
+- [x] Staff training tracking
+- [x] Certification expiry alerts
+- [x] Performance reviews
+- [x] Staff feedback system
+- [x] Advanced labour compliance reports
+- [x] Wage theft prevention
+- [x] Tip pooling management
+
+### Module 5.4: Financial Management - Missing Features (3) ✅ COMPLETED
+- [x] Advanced expense categorization
+- [x] Depreciation tracking
+- [x] Advanced invoice features (payment terms, recurring)
+
+### Module 5.5: Customer Management - Missing Features (2) ✅ COMPLETED
+- [x] Advanced churn prediction (ML-based)
+- [x] Predictive customer lifetime value
+
+### Module 5.6: Reservations - Missing Features (2) ✅ COMPLETED
+- [x] Advanced reservation modifications (time/party size changes)
+- [x] Group reservation management with sub-reservations

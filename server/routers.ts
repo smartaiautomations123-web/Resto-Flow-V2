@@ -911,5 +911,138 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
     staffPerformance: protectedProcedure.input(z.object({ startDate: z.string().optional(), endDate: z.string().optional() }).optional()).query(({ input }) => db.getStaffSalesPerformance(input?.startDate, input?.endDate)),
     unifiedQueue: protectedProcedure.query(() => db.getUnifiedOrderQueue()),
   }),
+
+  // ─── Prime Cost & Financial Analytics ────────────────────────────────────
+  primeCost: router({
+    calculate: protectedProcedure.input(z.object({ startDate: z.string(), endDate: z.string() }))
+      .query(({ input }) => db.calculatePrimeCost(new Date(input.startDate), new Date(input.endDate))),
+    trend: protectedProcedure.input(z.object({ startDate: z.string(), endDate: z.string() }))
+      .query(({ input }) => db.getPrimeCostTrend(new Date(input.startDate), new Date(input.endDate))),
+  }),
+
+  profitabilityMetrics: router({
+    dashboard: protectedProcedure.input(z.object({ startDate: z.string(), endDate: z.string() }))
+      .query(({ input }) => db.getProfitabilityMetrics(new Date(input.startDate), new Date(input.endDate))),
+  }),
+
+  consolidatedReports: router({
+    byLocation: protectedProcedure.input(z.object({ startDate: z.string(), endDate: z.string(), locationIds: z.array(z.number()).optional() }))
+      .query(({ input }) => db.getConsolidatedReport(new Date(input.startDate), new Date(input.endDate), input.locationIds)),
+  }),
+
+  invoices: router({
+    create: protectedProcedure.input(z.object({
+      supplierId: z.number(),
+      invoiceNumber: z.string(),
+      invoiceDate: z.string(),
+      dueDate: z.string(),
+      items: z.array(z.object({
+        description: z.string(),
+        quantity: z.number(),
+        unitPrice: z.string(),
+        totalPrice: z.string(),
+      })),
+      subtotal: z.string(),
+      tax: z.string(),
+      total: z.string(),
+      notes: z.string().optional(),
+     })).mutation(({ input }) => db.createInvoice({
+      ...input,
+      invoiceDate: new Date(input.invoiceDate),
+      dueDate: new Date(input.dueDate),
+    })),
+    list: protectedProcedure.input(z.object({ startDate: z.string().optional(), endDate: z.string().optional() }))
+      .query(({ input }) => db.getInvoices(
+        input.startDate ? new Date(input.startDate) : undefined,
+        input.endDate ? new Date(input.endDate) : undefined
+      )),
+  }),
+
+  // ─── Module 5.2: Inventory Management - Missing Features ───────────────────
+  inventoryManagement: router({
+    supplierLeadTimes: protectedProcedure.input(z.object({ supplierId: z.number() }))
+      .query(({ input }) => db.getSupplierLeadTimes(input.supplierId)),
+    minimumOrderAlerts: protectedProcedure.query(() => db.getMinimumOrderQuantityAlerts()),
+    reorderPointRecommendations: protectedProcedure.query(() => db.getReorderPointRecommendations()),
+    inventoryAgingReport: protectedProcedure.query(() => db.getInventoryAgingReport()),
+    wasteReductionSuggestions: protectedProcedure.input(z.object({ startDate: z.string(), endDate: z.string() }))
+      .query(({ input }) => db.getWasteReductionSuggestions(new Date(input.startDate), new Date(input.endDate))),
+    ingredientSubstitutions: protectedProcedure.input(z.object({ ingredientId: z.number() }))
+      .query(({ input }) => db.getIngredientSubstitutionSuggestions(input.ingredientId)),
+    forecastedDemand: protectedProcedure.input(z.object({ ingredientId: z.number(), daysAhead: z.number().optional() }))
+      .query(({ input }) => db.getForecastedDemand(input.ingredientId, input.daysAhead)),
+    portionSizeVariants: protectedProcedure.input(z.object({ menuItemId: z.number() }))
+      .query(({ input }) => db.getPortionSizeVariants(input.menuItemId)),
+    productionTemplates: protectedProcedure.query(() => db.getProductionQuantityTemplates()),
+    batchLotTracking: protectedProcedure.input(z.object({ ingredientId: z.number() }))
+      .query(({ input }) => db.getBatchLotTracking(input.ingredientId)),
+    threeWayMatching: protectedProcedure.input(z.object({ purchaseOrderId: z.number() }))
+      .query(({ input }) => db.get3WayMatchingStatus(input.purchaseOrderId)),
+    autoReceiveQR: protectedProcedure.input(z.object({ qrCode: z.string() }))
+      .mutation(({ input }) => db.autoReceiveDeliveryQR(input.qrCode)),
+    ediIntegrationStatus: protectedProcedure.input(z.object({ supplierId: z.number() }))
+      .query(({ input }) => db.getEDIIntegrationStatus(input.supplierId)),
+    supplierContracts: protectedProcedure.input(z.object({ supplierId: z.number() }))
+      .query(({ input }) => db.getSupplierContracts(input.supplierId)),
+  }),
+
+  // ─── Module 5.3: Labour Management - Missing Features ─────────────────────
+  labourManagement: router({
+    biometricTracking: protectedProcedure.input(z.object({ staffId: z.number(), startDate: z.string(), endDate: z.string() }))
+      .query(({ input }) => db.getBiometricTimeTracking(input.staffId, new Date(input.startDate), new Date(input.endDate))),
+    gpsVerification: protectedProcedure.input(z.object({ staffId: z.number() }))
+      .query(({ input }) => db.getGPSClockInVerification(input.staffId)),
+    geofencing: protectedProcedure.input(z.object({ staffId: z.number() }))
+      .query(({ input }) => db.getGeofencingStatus(input.staffId)),
+    advancedPTO: protectedProcedure.input(z.object({ staffId: z.number() }))
+      .query(({ input }) => db.getAdvancedPTOManagement(input.staffId)),
+    sickLeave: protectedProcedure.input(z.object({ staffId: z.number(), year: z.number() }))
+      .query(({ input }) => db.getSickLeaveTracking(input.staffId, input.year)),
+    recordBonus: protectedProcedure.input(z.object({ staffId: z.number(), amount: z.string(), reason: z.string(), month: z.number(), year: z.number() }))
+      .mutation(({ input }) => db.recordBonus(input.staffId, input.amount, input.reason, input.month, input.year)),
+    calculateCommission: protectedProcedure.input(z.object({ staffId: z.number(), startDate: z.string(), endDate: z.string() }))
+      .query(({ input }) => db.calculateCommission(input.staffId, new Date(input.startDate), new Date(input.endDate))),
+    disputeResolution: protectedProcedure.input(z.object({ staffId: z.number() }))
+      .query(({ input }) => db.getLabourDisputeResolution(input.staffId)),
+    trainingTracking: protectedProcedure.input(z.object({ staffId: z.number() }))
+      .query(({ input }) => db.getStaffTrainingTracking(input.staffId)),
+    certifications: protectedProcedure.input(z.object({ staffId: z.number() }))
+      .query(({ input }) => db.getStaffCertifications(input.staffId)),
+    certificationAlerts: protectedProcedure.input(z.object({ daysUntilExpiry: z.number().optional() }))
+      .query(({ input }) => db.getCertificationExpiryAlerts(input.daysUntilExpiry)),
+    performanceReviews: protectedProcedure.input(z.object({ staffId: z.number() }))
+      .query(({ input }) => db.getPerformanceReviews(input.staffId)),
+    staffFeedback: protectedProcedure.input(z.object({ staffId: z.number() }))
+      .query(({ input }) => db.getStaffFeedback(input.staffId)),
+    complianceReports: protectedProcedure.input(z.object({ startDate: z.string(), endDate: z.string() }))
+      .query(({ input }) => db.getAdvancedLabourComplianceReports(new Date(input.startDate), new Date(input.endDate))),
+    wageTheftPrevention: protectedProcedure.query(() => db.getWageTheftPreventionData()),
+    tipPooling: protectedProcedure.input(z.object({ locationId: z.number().optional() }))
+      .query(({ input }) => db.getTipPoolingManagement(input.locationId)),
+  }),
+
+  // ─── Module 5.4: Financial Management - Missing Features ──────────────────
+  financialManagement: router({
+    advancedExpenseCategories: protectedProcedure.query(() => db.getAdvancedExpenseCategories()),
+    depreciation: protectedProcedure.query(() => db.getDepreciationTracking()),
+    advancedInvoiceFeatures: protectedProcedure.input(z.object({ invoiceId: z.number() }))
+      .query(({ input }) => db.getAdvancedInvoiceFeatures(input.invoiceId)),
+  }),
+
+  // ─── Module 5.5: Customer Management - Missing Features ───────────────────
+  customerAnalytics: router({
+    churnPrediction: protectedProcedure.input(z.object({ customerId: z.number() }))
+      .query(({ input }) => db.getAdvancedChurnPrediction(input.customerId)),
+    predictiveLifetimeValue: protectedProcedure.input(z.object({ customerId: z.number() }))
+      .query(({ input }) => db.getPredictiveCustomerLifetimeValue(input.customerId)),
+  }),
+
+  // ─── Module 5.6: Reservations - Missing Features ────────────────────────
+  reservationManagement: router({
+    advancedModifications: protectedProcedure.input(z.object({ reservationId: z.number() }))
+      .query(({ input }) => db.getAdvancedReservationModifications(input.reservationId)),
+    groupReservations: protectedProcedure.input(z.object({ groupReservationId: z.number() }))
+      .query(({ input }) => db.getGroupReservationManagement(input.groupReservationId)),
+  }),
 });
 export type AppRouter = typeof appRouter;
