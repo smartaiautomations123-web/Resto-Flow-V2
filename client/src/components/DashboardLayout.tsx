@@ -341,7 +341,28 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
               {menuGroups.map((group) => {
                 const isExpanded = expandedGroups.has(group.id);
                 const hasActiveItem = group.items.some(item => item.path === location);
+                const isSingleItem = group.items.length === 1;
 
+                // For single-item groups (like Dashboard), show item directly
+                if (isSingleItem && !isCollapsed) {
+                  const item = group.items[0];
+                  const isActive = location === item.path;
+                  return (
+                    <SidebarMenuItem key={group.id}>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        onClick={() => setLocation(item.path)}
+                        tooltip={item.label}
+                        className="h-10 transition-all font-normal"
+                      >
+                        <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                }
+
+                // For multi-item groups, show collapsible header
                 return (
                   <div key={group.id}>
                     {/* Group Header */}
