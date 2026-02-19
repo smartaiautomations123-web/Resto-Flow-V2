@@ -391,3 +391,16 @@
 - [x] Barcode scanner support in POS (keyboard input, USB scanner)
 - [x] Third-party aggregator integration framework (Uber Eats, DoorDash, Deliveroo)
 - [~] PCI DSS compliance for card payments (full implementation - requires external audit)
+
+
+## Module 5.2 - INVENTORY MANAGEMENT (In Progress)
+- [ ] Stock tracking (current levels, reorder points, par levels)
+- [ ] Inventory adjustments (manual count, damage, expiry)
+- [ ] Waste tracking (reason, quantity, cost impact)
+- [ ] Supplier management (contact, pricing, lead times)
+- [ ] Purchase orders (creation, tracking, receiving)
+- [ ] Stock alerts (low stock, overstock, expiry warnings)
+- [ ] Cost analysis (COGS, inventory turnover, waste reports)
+- [ ] Barcode scanning for inventory (receiving, stock counts)
+- [ ] Inventory forecasting (based on sales trends)
+- [ ] Multi-location inventory sync

@@ -912,3 +912,34 @@ export const tableMerges = mysqlTable("table_merges", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   unmergedAt: timestamp("unmergedAt"),
 });
+
+
+// Module 5.2 - Inventory Management Tables
+
+export const stockLevels = mysqlTable('stock_levels', {
+  id: int().primaryKey().autoincrement(),
+  ingredientId: int().notNull(),
+  locationId: int().notNull(),
+  currentQuantity: decimal('current_quantity', { precision: 10, scale: 2 }).notNull().default('0'),
+  unit: varchar('unit', { length: 50 }).notNull(), // kg, L, pieces, etc.
+  reorderPoint: decimal('reorder_point', { precision: 10, scale: 2 }).notNull().default('0'),
+  parLevel: decimal('par_level', { precision: 10, scale: 2 }).notNull().default('0'),
+  lastCountedAt: timestamp('last_counted_at'),
+  lastCountedBy: varchar('last_counted_by', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+export const inventoryAdjustments = mysqlTable('inventory_adjustments', {
+  id: int().primaryKey().autoincrement(),
+  ingredientId: int().notNull(),
+  locationId: int().notNull(),
+  adjustmentType: varchar('adjustment_type', { length: 50 }).notNull(), // 'count', 'damage', 'expiry', 'manual', 'received', 'used'
+  quantity: decimal('quantity', { precision: 10, scale: 2 }).notNull(),
+  reason: varchar('reason', { length: 255 }),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  createdBy: varchar('created_by', { length: 255 }).notNull(),
+});
+
+
