@@ -46,6 +46,22 @@ export const appRouter = router({
 
   // ─── Dashboard helpers ───────────────────────────────────────────
   dashboard: router({
+    metrics: protectedProcedure.input(z.object({ startDate: z.string().optional(), endDate: z.string().optional() }))
+      .query(({ input }) => {
+        const start = input.startDate ? new Date(input.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const end = input.endDate ? new Date(input.endDate) : new Date();
+        return Promise.all([
+          db.getProfitabilityMetrics(start, end),
+          db.getStaffOnDuty(),
+          db.getShiftsEndingSoon(),
+          db.getLatestKPIMetrics(),
+        ]).then(([profitability, staffOnDuty, shiftsEnding, kpi]) => ({
+          profitability,
+          staffOnDuty,
+          shiftsEnding,
+          kpi,
+        }));
+      }),
     staffOnDuty: protectedProcedure.query(() => db.getStaffOnDuty()),
     shiftsEndingSoon: protectedProcedure.query(() => db.getShiftsEndingSoon()),
   }),

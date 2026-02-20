@@ -45,7 +45,11 @@ import LocationManagement from "./pages/LocationManagement";
 import PaymentDisputes from "./pages/PaymentDisputes";
 import LocationPricing from "./pages/LocationPricing";
 import UnifiedOrderQueue from "./pages/UnifiedOrderQueue";
+const OrderQueue = UnifiedOrderQueue; // Alias for backward compatibility
 import Settings from "./pages/Settings";
+import Integrations from "./pages/Integrations";
+import CustomReportBuilder from "./pages/CustomReportBuilder";
+import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 
 function Router() {
   return (
@@ -66,7 +70,8 @@ function Router() {
       <Route path="/void-reasons" component={() => <DashboardLayout><VoidReasonAnalytics /></DashboardLayout>} />
       <Route path="/payments" component={() => <DashboardLayout><PaymentManagement /></DashboardLayout>} />
       <Route path="/payment-disputes" component={() => <DashboardLayout><PaymentDisputes /></DashboardLayout>} />
-      <Route path="/order-queue" component={() => <DashboardLayout><UnifiedOrderQueue /></DashboardLayout>} />
+      <Route path="/order-queue" component={() => <DashboardLayout><OrderQueue /></DashboardLayout>} />
+      <Route path="/unified-order-queue" component={() => <DashboardLayout><UnifiedOrderQueue /></DashboardLayout>} />
 
       {/* ─── Menu & Recipes ────────────────────────────────── */}
       <Route path="/menu" component={() => <DashboardLayout><MenuManagement /></DashboardLayout>} />
@@ -102,9 +107,12 @@ function Router() {
       <Route path="/reports" component={() => <DashboardLayout><Reports /></DashboardLayout>} />
       <Route path="/profitability" component={() => <DashboardLayout><Profitability /></DashboardLayout>} />
       <Route path="/z-reports" component={() => <DashboardLayout><ZReports /></DashboardLayout>} />
+      <Route path="/custom-reports" component={() => <DashboardLayout><CustomReportBuilder /></DashboardLayout>} />
+      <Route path="/analytics" component={() => <DashboardLayout><AnalyticsDashboard /></DashboardLayout>} />
 
-          {/* ─── Settings & Admin ─────────────────────── */}
+      {/* ─── Settings & Admin ─────────────────────── */}
       <Route path="/settings" component={() => <DashboardLayout><Settings /></DashboardLayout>} />
+      <Route path="/integrations" component={() => <DashboardLayout><Integrations /></DashboardLayout>} />
       <Route path="/notifications" component={() => <DashboardLayout><NotificationCenter /></DashboardLayout>} />
       <Route path="/locations" component={() => <DashboardLayout><LocationManagement /></DashboardLayout>} />
       <Route path="/location-pricing" component={() => <DashboardLayout><LocationPricing /></DashboardLayout>} />

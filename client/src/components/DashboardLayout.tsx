@@ -152,6 +152,8 @@ const menuGroups: MenuGroup[] = [
       { icon: BarChart3, label: "Reports", path: "/reports" },
       { icon: TrendingUp, label: "Profitability", path: "/profitability" },
       { icon: Receipt, label: "Z-Reports", path: "/z-reports" },
+      { icon: BarChart3, label: "Custom Reports", path: "/custom-reports" },
+      { icon: TrendingUp, label: "Analytics Dashboard", path: "/analytics" },
     ],
   },
 
@@ -162,6 +164,7 @@ const menuGroups: MenuGroup[] = [
     icon: MapPin,
     items: [
       { icon: LayoutDashboard, label: "System Settings", path: "/settings" },
+      { icon: Zap, label: "Integrations", path: "/integrations" },
       { icon: MapPin, label: "Locations", path: "/locations" },
       { icon: CreditCard, label: "Location Pricing", path: "/location-pricing" },
     ],
