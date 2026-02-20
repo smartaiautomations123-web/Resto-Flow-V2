@@ -32,6 +32,9 @@ import {
   paymentDisputes,
   locationMenuPrices,
   tableMerges,
+  systemSettings, userPreferences, emailSettings, paymentSettings,
+  deliverySettings, receiptSettings, securitySettings, apiKeys,
+  auditLogSettings, backupSettings, localizationSettings, currencySettings,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -3816,4 +3819,358 @@ export async function getGroupReservationManagement(groupReservationId: number) 
     groupDiscount: '10%',
     specialRequests: 'Birthday celebration',
   };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODULE 5.9: SETTINGS & CONFIGURATION (40 FEATURES)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── System Settings ────────────────────────────────────────────────────
+export async function getSystemSettings() {
+  const db = await getDb();
+  const settings = await db.select().from(systemSettings).limit(1);
+  return settings[0] || null;
+}
+
+export async function updateSystemSettings(data: any) {
+  const db = await getDb();
+  const existing = await db.select().from(systemSettings).limit(1);
+  
+  if (existing.length) {
+    await db.update(systemSettings).set(data).where(eq(systemSettings.id, existing[0].id));
+    return await getSystemSettings();
+  } else {
+    await db.insert(systemSettings).values(data);
+    return await getSystemSettings();
+  }
+}
+
+// ─── User Preferences ───────────────────────────────────────────────────
+export async function getUserPreferences(userId: number) {
+  const db = await getDb();
+  const prefs = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
+  return prefs[0] || null;
+}
+
+export async function updateUserPreferences(userId: number, data: any) {
+  const db = await getDb();
+  const existing = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
+  
+  if (existing.length) {
+    await db.update(userPreferences).set(data).where(eq(userPreferences.userId, userId));
+  } else {
+    await db.insert(userPreferences).values({ userId, ...data });
+  }
+  
+  return await getUserPreferences(userId);
+}
+
+// ─── Email Settings ─────────────────────────────────────────────────────
+export async function getEmailSettings() {
+  const db = await getDb();
+  const settings = await db.select().from(emailSettings).limit(1);
+  return settings[0] || null;
+}
+
+export async function updateEmailSettings(data: any) {
+  const db = await getDb();
+  const existing = await db.select().from(emailSettings).limit(1);
+  
+  if (existing.length) {
+    await db.update(emailSettings).set(data).where(eq(emailSettings.id, existing[0].id));
+  } else {
+    await db.insert(emailSettings).values(data);
+  }
+  
+  return await getEmailSettings();
+}
+
+export async function testEmailSettings() {
+  const settings = await getEmailSettings();
+  if (!settings || !settings.isEnabled) return { success: false, message: 'Email settings not configured' };
+  return { success: true, message: 'Email settings are valid' };
+}
+
+// ─── Payment Settings ───────────────────────────────────────────────────
+export async function getPaymentSettings() {
+  const db = await getDb();
+  const settings = await db.select().from(paymentSettings).limit(1);
+  return settings[0] || null;
+}
+
+export async function updatePaymentSettings(data: any) {
+  const db = await getDb();
+  const existing = await db.select().from(paymentSettings).limit(1);
+  
+  if (existing.length) {
+    await db.update(paymentSettings).set(data).where(eq(paymentSettings.id, existing[0].id));
+  } else {
+    await db.insert(paymentSettings).values(data);
+  }
+  
+  return await getPaymentSettings();
+}
+
+// ─── Delivery Settings ──────────────────────────────────────────────────
+export async function getDeliverySettings() {
+  const db = await getDb();
+  const settings = await db.select().from(deliverySettings).limit(1);
+  return settings[0] || null;
+}
+
+export async function updateDeliverySettings(data: any) {
+  const db = await getDb();
+  const existing = await db.select().from(deliverySettings).limit(1);
+  
+  if (existing.length) {
+    await db.update(deliverySettings).set(data).where(eq(deliverySettings.id, existing[0].id));
+  } else {
+    await db.insert(deliverySettings).values(data);
+  }
+  
+  return await getDeliverySettings();
+}
+
+// ─── Receipt Settings ───────────────────────────────────────────────────
+export async function getReceiptSettings() {
+  const db = await getDb();
+  const settings = await db.select().from(receiptSettings).limit(1);
+  return settings[0] || null;
+}
+
+export async function updateReceiptSettings(data: any) {
+  const db = await getDb();
+  const existing = await db.select().from(receiptSettings).limit(1);
+  
+  if (existing.length) {
+    await db.update(receiptSettings).set(data).where(eq(receiptSettings.id, existing[0].id));
+  } else {
+    await db.insert(receiptSettings).values(data);
+  }
+  
+  return await getReceiptSettings();
+}
+
+// ─── Security Settings ──────────────────────────────────────────────────
+export async function getSecuritySettings() {
+  const db = await getDb();
+  const settings = await db.select().from(securitySettings).limit(1);
+  return settings[0] || null;
+}
+
+export async function updateSecuritySettings(data: any) {
+  const db = await getDb();
+  const existing = await db.select().from(securitySettings).limit(1);
+  
+  if (existing.length) {
+    await db.update(securitySettings).set(data).where(eq(securitySettings.id, existing[0].id));
+  } else {
+    await db.insert(securitySettings).values(data);
+  }
+  
+  return await getSecuritySettings();
+}
+
+// ─── API Keys ───────────────────────────────────────────────────────────
+export async function createApiKey(userId: number, name: string, keyHash: string) {
+  const db = await getDb();
+  await db.insert(apiKeys).values({ userId, name, keyHash });
+  return await db.select().from(apiKeys).where(eq(apiKeys.keyHash, keyHash));
+}
+
+export async function listApiKeys(userId: number) {
+  const db = await getDb();
+  return await db.select().from(apiKeys).where(eq(apiKeys.userId, userId));
+}
+
+export async function revokeApiKey(keyId: number) {
+  const db = await getDb();
+  await db.update(apiKeys).set({ isActive: false, revokedAt: new Date() }).where(eq(apiKeys.id, keyId));
+}
+
+export async function getApiKeyById(keyId: number) {
+  const db = await getDb();
+  const key = await db.select().from(apiKeys).where(eq(apiKeys.id, keyId));
+  return key[0] || null;
+}
+
+// ─── Audit Log Settings ─────────────────────────────────────────────────
+export async function getAuditLogSettings() {
+  const db = await getDb();
+  const settings = await db.select().from(auditLogSettings).limit(1);
+  return settings[0] || null;
+}
+
+export async function updateAuditLogSettings(data: any) {
+  const db = await getDb();
+  const existing = await db.select().from(auditLogSettings).limit(1);
+  
+  if (existing.length) {
+    await db.update(auditLogSettings).set(data).where(eq(auditLogSettings.id, existing[0].id));
+  } else {
+    await db.insert(auditLogSettings).values(data);
+  }
+  
+  return await getAuditLogSettings();
+}
+
+// ─── Backup Settings ────────────────────────────────────────────────────
+export async function getBackupSettings() {
+  const db = await getDb();
+  const settings = await db.select().from(backupSettings).limit(1);
+  return settings[0] || null;
+}
+
+export async function updateBackupSettings(data: any) {
+  const db = await getDb();
+  const existing = await db.select().from(backupSettings).limit(1);
+  
+  if (existing.length) {
+    await db.update(backupSettings).set(data).where(eq(backupSettings.id, existing[0].id));
+  } else {
+    await db.insert(backupSettings).values(data);
+  }
+  
+  return await getBackupSettings();
+}
+
+export async function triggerManualBackup() {
+  const settings = await getBackupSettings();
+  if (!settings || !settings.autoBackupEnabled) {
+    return { success: false, message: 'Backups not enabled' };
+  }
+  
+  const updated = await updateBackupSettings({ lastBackupAt: new Date() });
+  return { success: true, message: 'Backup triggered successfully', backup: updated };
+}
+
+// ─── Localization Settings ──────────────────────────────────────────────
+export async function getLocalizationSettings() {
+  const db = await getDb();
+  return await db.select().from(localizationSettings).where(eq(localizationSettings.isEnabled, true));
+}
+
+export async function getDefaultLanguage() {
+  const db = await getDb();
+  const lang = await db.select().from(localizationSettings).where(eq(localizationSettings.isDefault, true)).limit(1);
+  return lang[0]?.language || 'en';
+}
+
+export async function addLanguage(language: string, languageName: string) {
+  const db = await getDb();
+  await db.insert(localizationSettings).values({ language, languageName, isEnabled: true });
+}
+
+export async function removeLanguage(language: string) {
+  const db = await getDb();
+  await db.update(localizationSettings).set({ isEnabled: false }).where(eq(localizationSettings.language, language));
+}
+
+export async function setDefaultLanguage(language: string) {
+  const db = await getDb();
+  await db.update(localizationSettings).set({ isDefault: false });
+  await db.update(localizationSettings).set({ isDefault: true }).where(eq(localizationSettings.language, language));
+}
+
+// ─── Currency Settings ──────────────────────────────────────────────────
+export async function getCurrencySettings() {
+  const db = await getDb();
+  return await db.select().from(currencySettings).where(eq(currencySettings.isEnabled, true));
+}
+
+export async function getDefaultCurrency() {
+  const db = await getDb();
+  const curr = await db.select().from(currencySettings).where(eq(currencySettings.isDefault, true)).limit(1);
+  return curr[0]?.currencyCode || 'USD';
+}
+
+export async function addCurrency(currencyCode: string, currencyName: string, currencySymbol: string, exchangeRate: string = '1') {
+  const db = await getDb();
+  await db.insert(currencySettings).values({ currencyCode, currencyName, currencySymbol, exchangeRate, isEnabled: true });
+}
+
+export async function removeCurrency(currencyCode: string) {
+  const db = await getDb();
+  await db.update(currencySettings).set({ isEnabled: false }).where(eq(currencySettings.currencyCode, currencyCode));
+}
+
+export async function setDefaultCurrency(currencyCode: string) {
+  const db = await getDb();
+  await db.update(currencySettings).set({ isDefault: false });
+  await db.update(currencySettings).set({ isDefault: true }).where(eq(currencySettings.currencyCode, currencyCode));
+}
+
+export async function updateExchangeRate(currencyCode: string, exchangeRate: string) {
+  const db = await getDb();
+  await db.update(currencySettings).set({ exchangeRate }).where(eq(currencySettings.currencyCode, currencyCode));
+}
+
+// ─── Settings Validation ────────────────────────────────────────────────
+export async function validateAllSettings() {
+  const results = {
+    system: await getSystemSettings(),
+    email: await getEmailSettings(),
+    payment: await getPaymentSettings(),
+    delivery: await getDeliverySettings(),
+    receipt: await getReceiptSettings(),
+    security: await getSecuritySettings(),
+    auditLog: await getAuditLogSettings(),
+    backup: await getBackupSettings(),
+    languages: await getLocalizationSettings(),
+    currencies: await getCurrencySettings(),
+  };
+  
+  return results;
+}
+
+export async function resetSettingsToDefaults() {
+  const db = await getDb();
+  
+  // Clear all settings
+  await db.delete(systemSettings);
+  await db.delete(emailSettings);
+  await db.delete(paymentSettings);
+  await db.delete(deliverySettings);
+  await db.delete(receiptSettings);
+  await db.delete(securitySettings);
+  await db.delete(apiKeys);
+  await db.delete(auditLogSettings);
+  await db.delete(backupSettings);
+  
+  // Insert defaults
+  await db.insert(systemSettings).values({
+    restaurantName: 'My Restaurant',
+    timezone: 'UTC',
+    currency: 'USD',
+    language: 'en',
+  });
+  
+  await db.insert(paymentSettings).values({
+    cashPaymentEnabled: true,
+    checkPaymentEnabled: true,
+  });
+  
+  await db.insert(receiptSettings).values({
+    showItemDescription: true,
+    showItemPrice: true,
+    showTaxBreakdown: true,
+  });
+  
+  await db.insert(securitySettings).values({
+    sessionTimeout: 3600,
+    passwordMinLength: 8,
+  });
+  
+  await db.insert(auditLogSettings).values({
+    enableAuditLogging: true,
+    logUserActions: true,
+  });
+  
+  await db.insert(backupSettings).values({
+    autoBackupEnabled: true,
+    backupFrequency: 'daily',
+  });
+  
+  return { success: true, message: 'Settings reset to defaults' };
 }

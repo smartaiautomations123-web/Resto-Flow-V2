@@ -912,3 +912,220 @@ export const tableMerges = mysqlTable("table_merges", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   unmergedAt: timestamp("unmergedAt"),
 });
+
+
+// ─── Module 5.9: Settings & Configuration ───────────────────────────
+// ─── System Settings ────────────────────────────────────────────────
+export const systemSettings = mysqlTable("system_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  restaurantName: varchar("restaurantName", { length: 255 }),
+  restaurantLogo: text("restaurantLogo"), // URL to logo
+  timezone: varchar("timezone", { length: 64 }).default("UTC"),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  language: varchar("language", { length: 10 }).default("en"),
+  dateFormat: varchar("dateFormat", { length: 20 }).default("MM/DD/YYYY"),
+  timeFormat: varchar("timeFormat", { length: 20 }).default("12h"),
+  taxRate: decimal("taxRate", { precision: 5, scale: 2 }).default("0"),
+  businessLicense: varchar("businessLicense", { length: 255 }),
+  businessPhone: varchar("businessPhone", { length: 32 }),
+  businessEmail: varchar("businessEmail", { length: 320 }),
+  businessAddress: text("businessAddress"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SystemSettings = typeof systemSettings.$inferSelect;
+export type InsertSystemSettings = typeof systemSettings.$inferInsert;
+
+// ─── User Preferences ───────────────────────────────────────────────
+export const userPreferences = mysqlTable("user_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  theme: mysqlEnum("theme", ["light", "dark", "auto"]).default("auto"),
+  language: varchar("language", { length: 10 }).default("en"),
+  timezone: varchar("timezone", { length: 64 }).default("UTC"),
+  sidebarCollapsed: boolean("sidebarCollapsed").default(false),
+  compactMode: boolean("compactMode").default(false),
+  showNotifications: boolean("showNotifications").default(true),
+  soundEnabled: boolean("soundEnabled").default(true),
+  emailDigest: mysqlEnum("emailDigest", ["none", "daily", "weekly", "monthly"]).default("weekly"),
+  defaultLocation: int("defaultLocation"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserPreferences = typeof userPreferences.$inferSelect;
+export type InsertUserPreferences = typeof userPreferences.$inferInsert;
+
+// ─── Email Settings ─────────────────────────────────────────────────
+export const emailSettings = mysqlTable("email_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  smtpHost: varchar("smtpHost", { length: 255 }),
+  smtpPort: int("smtpPort").default(587),
+  smtpUser: varchar("smtpUser", { length: 255 }),
+  smtpPassword: text("smtpPassword"), // encrypted
+  fromEmail: varchar("fromEmail", { length: 320 }),
+  fromName: varchar("fromName", { length: 255 }),
+  isEnabled: boolean("isEnabled").default(false),
+  useTLS: boolean("useTLS").default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type EmailSettings = typeof emailSettings.$inferSelect;
+export type InsertEmailSettings = typeof emailSettings.$inferInsert;
+
+// ─── Payment Settings ───────────────────────────────────────────────
+export const paymentSettings = mysqlTable("payment_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  stripePublishableKey: varchar("stripePublishableKey", { length: 255 }),
+  stripeSecretKey: text("stripeSecretKey"), // encrypted
+  stripeEnabled: boolean("stripeEnabled").default(false),
+  squareAccessToken: text("squareAccessToken"), // encrypted
+  squareEnabled: boolean("squareEnabled").default(false),
+  paypalClientId: varchar("paypalClientId", { length: 255 }),
+  paypalClientSecret: text("paypalClientSecret"), // encrypted
+  paypalEnabled: boolean("paypalEnabled").default(false),
+  cashPaymentEnabled: boolean("cashPaymentEnabled").default(true),
+  checkPaymentEnabled: boolean("checkPaymentEnabled").default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PaymentSettings = typeof paymentSettings.$inferSelect;
+export type InsertPaymentSettings = typeof paymentSettings.$inferInsert;
+
+// ─── Delivery Settings ──────────────────────────────────────────────
+export const deliverySettings = mysqlTable("delivery_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  internalDeliveryEnabled: boolean("internalDeliveryEnabled").default(false),
+  thirdPartyDeliveryEnabled: boolean("thirdPartyDeliveryEnabled").default(false),
+  defaultDeliveryFee: decimal("defaultDeliveryFee", { precision: 10, scale: 2 }).default("0"),
+  minOrderForDelivery: decimal("minOrderForDelivery", { precision: 10, scale: 2 }).default("0"),
+  maxDeliveryDistance: int("maxDeliveryDistance").default(10), // in miles/km
+  deliveryTimeEstimate: int("deliveryTimeEstimate").default(30), // in minutes
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DeliverySettings = typeof deliverySettings.$inferSelect;
+export type InsertDeliverySettings = typeof deliverySettings.$inferInsert;
+
+// ─── Receipt Settings ───────────────────────────────────────────────
+export const receiptSettings = mysqlTable("receipt_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  receiptHeader: text("receiptHeader"),
+  receiptFooter: text("receiptFooter"),
+  showItemDescription: boolean("showItemDescription").default(true),
+  showItemPrice: boolean("showItemPrice").default(true),
+  showTaxBreakdown: boolean("showTaxBreakdown").default(true),
+  showDiscounts: boolean("showDiscounts").default(true),
+  showPaymentMethod: boolean("showPaymentMethod").default(true),
+  showServerName: boolean("showServerName").default(true),
+  showTableNumber: boolean("showTableNumber").default(true),
+  printLogo: boolean("printLogo").default(true),
+  receiptWidth: int("receiptWidth").default(80), // characters
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ReceiptSettings = typeof receiptSettings.$inferSelect;
+export type InsertReceiptSettings = typeof receiptSettings.$inferInsert;
+
+// ─── Security Settings ──────────────────────────────────────────────
+export const securitySettings = mysqlTable("security_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  twoFactorAuthEnabled: boolean("twoFactorAuthEnabled").default(false),
+  ssoEnabled: boolean("ssoEnabled").default(false),
+  ssoProvider: varchar("ssoProvider", { length: 64 }), // "okta", "azure", "google", etc.
+  sessionTimeout: int("sessionTimeout").default(3600), // in seconds
+  passwordMinLength: int("passwordMinLength").default(8),
+  passwordRequireUppercase: boolean("passwordRequireUppercase").default(true),
+  passwordRequireNumbers: boolean("passwordRequireNumbers").default(true),
+  passwordRequireSpecialChars: boolean("passwordRequireSpecialChars").default(true),
+  passwordExpiryDays: int("passwordExpiryDays").default(90),
+  ipWhitelistEnabled: boolean("ipWhitelistEnabled").default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SecuritySettings = typeof securitySettings.$inferSelect;
+export type InsertSecuritySettings = typeof securitySettings.$inferInsert;
+
+// ─── API Keys ───────────────────────────────────────────────────────
+export const apiKeys = mysqlTable("api_keys", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  keyHash: varchar("keyHash", { length: 255 }).notNull().unique(),
+  lastUsed: timestamp("lastUsed"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  revokedAt: timestamp("revokedAt"),
+});
+
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = typeof apiKeys.$inferInsert;
+
+// ─── Audit Log Settings ─────────────────────────────────────────────
+export const auditLogSettings = mysqlTable("audit_log_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  enableAuditLogging: boolean("enableAuditLogging").default(true),
+  logUserActions: boolean("logUserActions").default(true),
+  logDataChanges: boolean("logDataChanges").default(true),
+  logLoginAttempts: boolean("logLoginAttempts").default(true),
+  logPayments: boolean("logPayments").default(true),
+  retentionDays: int("retentionDays").default(90),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AuditLogSettings = typeof auditLogSettings.$inferSelect;
+export type InsertAuditLogSettings = typeof auditLogSettings.$inferInsert;
+
+// ─── Backup Settings ────────────────────────────────────────────────
+export const backupSettings = mysqlTable("backup_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  autoBackupEnabled: boolean("autoBackupEnabled").default(true),
+  backupFrequency: mysqlEnum("backupFrequency", ["hourly", "daily", "weekly", "monthly"]).default("daily"),
+  backupTime: varchar("backupTime", { length: 5 }).default("02:00"), // HH:MM
+  retentionDays: int("retentionDays").default(30),
+  s3BucketName: varchar("s3BucketName", { length: 255 }),
+  s3Enabled: boolean("s3Enabled").default(false),
+  lastBackupAt: timestamp("lastBackupAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BackupSettings = typeof backupSettings.$inferSelect;
+export type InsertBackupSettings = typeof backupSettings.$inferInsert;
+
+// ─── Localization Settings ──────────────────────────────────────────
+export const localizationSettings = mysqlTable("localization_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  language: varchar("language", { length: 10 }).notNull(),
+  languageName: varchar("languageName", { length: 64 }).notNull(),
+  isEnabled: boolean("isEnabled").default(true),
+  isDefault: boolean("isDefault").default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type LocalizationSettings = typeof localizationSettings.$inferSelect;
+export type InsertLocalizationSettings = typeof localizationSettings.$inferInsert;
+
+// ─── Currency Settings ──────────────────────────────────────────────
+export const currencySettings = mysqlTable("currency_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  currencyCode: varchar("currencyCode", { length: 3 }).notNull().unique(),
+  currencyName: varchar("currencyName", { length: 64 }).notNull(),
+  currencySymbol: varchar("currencySymbol", { length: 10 }).notNull(),
+  exchangeRate: decimal("exchangeRate", { precision: 10, scale: 4 }).default("1"),
+  isEnabled: boolean("isEnabled").default(true),
+  isDefault: boolean("isDefault").default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CurrencySettings = typeof currencySettings.$inferSelect;
+export type InsertCurrencySettings = typeof currencySettings.$inferInsert;
