@@ -1129,3 +1129,122 @@ export const currencySettings = mysqlTable("currency_settings", {
 
 export type CurrencySettings = typeof currencySettings.$inferSelect;
 export type InsertCurrencySettings = typeof currencySettings.$inferInsert;
+
+
+// ─── Integrations ───────────────────────────────────────────────────
+export const integrations = mysqlTable("integrations", {
+  id: int("id").autoincrement().primaryKey(),
+  type: mysqlEnum("type", ["slack", "teams", "quickbooks", "stripe", "square", "paypal", "uber_eats", "doordash", "grubhub", "webhook"]).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  isEnabled: boolean("isEnabled").default(true).notNull(),
+  apiKey: text("apiKey"),
+  apiSecret: text("apiSecret"),
+  webhookUrl: text("webhookUrl"),
+  webhookSecret: text("webhookSecret"),
+  config: text("config"), // JSON configuration
+  lastSyncAt: timestamp("lastSyncAt"),
+  lastErrorAt: timestamp("lastErrorAt"),
+  lastErrorMessage: text("lastErrorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Integration = typeof integrations.$inferSelect;
+export type InsertIntegration = typeof integrations.$inferInsert;
+
+// ─── Integration Logs ───────────────────────────────────────────────
+export const integrationLogs = mysqlTable("integration_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  integrationId: int("integrationId").notNull(),
+  action: varchar("action", { length: 64 }).notNull(), // sync, webhook, error
+  status: mysqlEnum("status", ["success", "failed", "pending"]).default("pending"),
+  message: text("message"),
+  requestData: text("requestData"), // JSON
+  responseData: text("responseData"), // JSON
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type IntegrationLog = typeof integrationLogs.$inferSelect;
+export type InsertIntegrationLog = typeof integrationLogs.$inferInsert;
+
+// ─── Custom Reports ─────────────────────────────────────────────────
+export const customReports = mysqlTable("custom_reports", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  type: mysqlEnum("type", ["sales", "inventory", "labour", "customer", "financial", "custom"]).notNull(),
+  filters: text("filters"), // JSON
+  columns: text("columns"), // JSON array of column names
+  sortBy: varchar("sortBy", { length: 64 }),
+  sortOrder: mysqlEnum("sortOrder", ["asc", "desc"]).default("asc"),
+  isPublic: boolean("isPublic").default(false),
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type CustomReport = typeof customReports.$inferSelect;
+export type InsertCustomReport = typeof customReports.$inferInsert;
+
+// ─── Report Exports ─────────────────────────────────────────────────
+export const reportExports = mysqlTable("report_exports", {
+  id: int("id").autoincrement().primaryKey(),
+  reportId: int("reportId").notNull(),
+  format: mysqlEnum("format", ["pdf", "excel", "csv", "json"]).notNull(),
+  fileName: varchar("fileName", { length: 255 }).notNull(),
+  fileUrl: text("fileUrl"),
+  fileSize: int("fileSize"),
+  status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
+  exportedBy: int("exportedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ReportExport = typeof reportExports.$inferSelect;
+export type InsertReportExport = typeof reportExports.$inferInsert;
+
+// ─── Analytics Dashboard ────────────────────────────────────────────
+export const analyticsDashboard = mysqlTable("analytics_dashboard", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  widgets: text("widgets"), // JSON array of widget configurations
+  refreshInterval: int("refreshInterval").default(300), // seconds
+  isDefault: boolean("isDefault").default(false),
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AnalyticsDashboard = typeof analyticsDashboard.$inferSelect;
+export type InsertAnalyticsDashboard = typeof analyticsDashboard.$inferInsert;
+
+// ─── KPI Metrics ────────────────────────────────────────────────────
+export const kpiMetrics = mysqlTable("kpi_metrics", {
+  id: int("id").autoincrement().primaryKey(),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  totalRevenue: decimal("totalRevenue", { precision: 12, scale: 2 }).default("0"),
+  totalOrders: int("totalOrders").default(0),
+  averageOrderValue: decimal("averageOrderValue", { precision: 10, scale: 2 }).default("0"),
+  customerCount: int("customerCount").default(0),
+  newCustomers: int("newCustomers").default(0),
+  repeatCustomers: int("repeatCustomers").default(0),
+  labourCost: decimal("labourCost", { precision: 12, scale: 2 }).default("0"),
+  foodCost: decimal("foodCost", { precision: 12, scale: 2 }).default("0"),
+  primeCost: decimal("primeCost", { precision: 10, scale: 2 }).default("0"),
+  netProfit: decimal("netProfit", { precision: 12, scale: 2 }).default("0"),
+  profitMargin: decimal("profitMargin", { precision: 5, scale: 2 }).default("0"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type KPIMetric = typeof kpiMetrics.$inferSelect;
+export type InsertKPIMetric = typeof kpiMetrics.$inferInsert;
+
+// ─── Forecasting Data ───────────────────────────────────────────────
+export const forecastingData = mysqlTable("forecasting_data", {
+  id: int("id").autoincrement().primaryKey(),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  dayOfWeek: varchar("dayOfWeek", { length: 10 }).notNull(),
+  forecastedRevenue: decimal("forecastedRevenue", { precision: 12, scale: 2 }).default("0"),
+  actualRevenue: decimal("actualRevenue", { precision: 12, scale: 2 }),
+  forecastedOrders: int("forecastedOrders").default(0),
+  actualOrders: int("actualOrders"),
+  confidence: decimal("confidence", { precision: 5, scale: 2 }).default("0"), // 0-100
+  accuracy: decimal("accuracy", { precision: 5, scale: 2 }), // after actual is known
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ForecastingData = typeof forecastingData.$inferSelect;
+export type InsertForecastingData = typeof forecastingData.$inferInsert;

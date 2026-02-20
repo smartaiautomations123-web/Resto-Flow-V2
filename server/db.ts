@@ -35,8 +35,11 @@ import {
   systemSettings, userPreferences, emailSettings, paymentSettings,
   deliverySettings, receiptSettings, securitySettings, apiKeys,
   auditLogSettings, backupSettings, localizationSettings, currencySettings,
+  integrations, integrationLogs, customReports, reportExports,
+  analyticsDashboard, kpiMetrics, forecastingData,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import { sql, eq, and, gte, lte, desc, asc, inArray, or, isNotNull } from 'drizzle-orm';
 
 let _db: MySql2Database | null = null;
 
@@ -4173,4 +4176,335 @@ export async function resetSettingsToDefaults() {
   });
   
   return { success: true, message: 'Settings reset to defaults' };
+}
+
+
+// ─── INTEGRATIONS ───────────────────────────────────────────────────
+export async function createIntegration(data: {
+  type: string;
+  name: string;
+  apiKey?: string;
+  apiSecret?: string;
+  webhookUrl?: string;
+  config?: string;
+}) {
+  const db = await getDb();
+  const result = await db.insert(integrations).values({
+    type: data.type as any,
+    name: data.name,
+    apiKey: data.apiKey,
+    apiSecret: data.apiSecret,
+    webhookUrl: data.webhookUrl,
+    config: data.config,
+    isEnabled: true,
+  });
+  return result;
+}
+
+export async function getIntegrations() {
+  const db = await getDb();
+  return await db.select().from(integrations).where(eq(integrations.isEnabled, true));
+}
+
+export async function getIntegrationById(id: number) {
+  const db = await getDb();
+  return await db.select().from(integrations).where(eq(integrations.id, id)).limit(1);
+}
+
+export async function updateIntegration(id: number, data: any) {
+  const db = await getDb();
+  return await db.update(integrations).set({
+    ...data,
+    updatedAt: new Date(),
+  }).where(eq(integrations.id, id));
+}
+
+export async function deleteIntegration(id: number) {
+  const db = await getDb();
+  return await db.delete(integrations).where(eq(integrations.id, id));
+}
+
+export async function logIntegrationAction(integrationId: number, action: string, status: string, message?: string, requestData?: any, responseData?: any) {
+  const db = await getDb();
+  return await db.insert(integrationLogs).values({
+    integrationId,
+    action,
+    status: status as any,
+    message,
+    requestData: requestData ? JSON.stringify(requestData) : null,
+    responseData: responseData ? JSON.stringify(responseData) : null,
+  });
+}
+
+export async function getIntegrationLogs(integrationId: number, limit = 50) {
+  const db = await getDb();
+  return await db.select().from(integrationLogs)
+    .where(eq(integrationLogs.integrationId, integrationId))
+    .orderBy(desc(integrationLogs.createdAt))
+    .limit(limit);
+}
+
+// ─── CUSTOM REPORTS ─────────────────────────────────────────────────
+export async function createCustomReport(data: {
+  name: string;
+  description?: string;
+  type: string;
+  filters?: string;
+  columns?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  isPublic?: boolean;
+  createdBy: number;
+}) {
+  const db = await getDb();
+  return await db.insert(customReports).values({
+    name: data.name,
+    description: data.description,
+    type: data.type as any,
+    filters: data.filters,
+    columns: data.columns,
+    sortBy: data.sortBy,
+    sortOrder: (data.sortOrder as any) || 'asc',
+    isPublic: data.isPublic || false,
+    createdBy: data.createdBy,
+  });
+}
+
+export async function getCustomReports(userId: number) {
+  const db = await getDb();
+  return await db.select().from(customReports)
+    .where(or(
+      eq(customReports.createdBy, userId),
+      eq(customReports.isPublic, true)
+    ));
+}
+
+export async function getCustomReportById(id: number) {
+  const db = await getDb();
+  return await db.select().from(customReports).where(eq(customReports.id, id)).limit(1);
+}
+
+export async function updateCustomReport(id: number, data: any) {
+  const db = await getDb();
+  return await db.update(customReports).set({
+    ...data,
+    updatedAt: new Date(),
+  }).where(eq(customReports.id, id));
+}
+
+export async function deleteCustomReport(id: number) {
+  const db = await getDb();
+  return await db.delete(customReports).where(eq(customReports.id, id));
+}
+
+export async function createReportExport(reportId: number, format: string, fileName: string, fileUrl: string, fileSize: number, exportedBy: number) {
+  const db = await getDb();
+  return await db.insert(reportExports).values({
+    reportId,
+    format: format as any,
+    fileName,
+    fileUrl,
+    fileSize,
+    status: 'completed',
+    exportedBy,
+  });
+}
+
+export async function getReportExports(reportId: number) {
+  const db = await getDb();
+  return await db.select().from(reportExports)
+    .where(eq(reportExports.reportId, reportId))
+    .orderBy(desc(reportExports.createdAt));
+}
+
+// ─── ANALYTICS DASHBOARD ────────────────────────────────────────────
+export async function createAnalyticsDashboard(data: {
+  name: string;
+  description?: string;
+  widgets: string;
+  refreshInterval?: number;
+  isDefault?: boolean;
+  createdBy: number;
+}) {
+  const db = await getDb();
+  return await db.insert(analyticsDashboard).values({
+    name: data.name,
+    description: data.description,
+    widgets: data.widgets,
+    refreshInterval: data.refreshInterval || 300,
+    isDefault: data.isDefault || false,
+    createdBy: data.createdBy,
+  });
+}
+
+export async function getAnalyticsDashboards() {
+  const db = await getDb();
+  return await db.select().from(analyticsDashboard).orderBy(desc(analyticsDashboard.updatedAt));
+}
+
+export async function getDefaultAnalyticsDashboard() {
+  const db = await getDb();
+  return await db.select().from(analyticsDashboard).where(eq(analyticsDashboard.isDefault, true)).limit(1);
+}
+
+export async function updateAnalyticsDashboard(id: number, data: any) {
+  const db = await getDb();
+  return await db.update(analyticsDashboard).set({
+    ...data,
+    updatedAt: new Date(),
+  }).where(eq(analyticsDashboard.id, id));
+}
+
+// ─── KPI METRICS ────────────────────────────────────────────────────
+export async function recordKPIMetrics(date: string, metrics: {
+  totalRevenue: number;
+  totalOrders: number;
+  averageOrderValue: number;
+  customerCount: number;
+  newCustomers: number;
+  repeatCustomers: number;
+  labourCost: number;
+  foodCost: number;
+  primeCost: number;
+  netProfit: number;
+  profitMargin: number;
+}) {
+  const db = await getDb();
+  return await db.insert(kpiMetrics).values({
+    date,
+    totalRevenue: metrics.totalRevenue.toString(),
+    totalOrders: metrics.totalOrders,
+    averageOrderValue: metrics.averageOrderValue.toString(),
+    customerCount: metrics.customerCount,
+    newCustomers: metrics.newCustomers,
+    repeatCustomers: metrics.repeatCustomers,
+    labourCost: metrics.labourCost.toString(),
+    foodCost: metrics.foodCost.toString(),
+    primeCost: metrics.primeCost.toString(),
+    netProfit: metrics.netProfit.toString(),
+    profitMargin: metrics.profitMargin.toString(),
+  });
+}
+
+export async function getKPIMetrics(startDate: string, endDate: string) {
+  const db = await getDb();
+  return await db.select().from(kpiMetrics)
+    .where(and(
+      gte(kpiMetrics.date, startDate),
+      lte(kpiMetrics.date, endDate)
+    ))
+    .orderBy(asc(kpiMetrics.date));
+}
+
+export async function getLatestKPIMetrics() {
+  const db = await getDb();
+  return await db.select().from(kpiMetrics)
+    .orderBy(desc(kpiMetrics.date))
+    .limit(1);
+}
+
+// ─── FORECASTING DATA ───────────────────────────────────────────────
+export async function recordForecastingData(date: string, dayOfWeek: string, forecastedRevenue: number, forecastedOrders: number, confidence: number) {
+  const db = await getDb();
+  return await db.insert(forecastingData).values({
+    date,
+    dayOfWeek,
+    forecastedRevenue: forecastedRevenue.toString(),
+    forecastedOrders,
+    confidence: confidence.toString(),
+  });
+}
+
+export async function updateForecastingActuals(date: string, actualRevenue: number, actualOrders: number) {
+  const db = await getDb();
+  const existing = await db.select().from(forecastingData).where(eq(forecastingData.date, date)).limit(1);
+  
+  if (existing.length > 0) {
+    const forecast = existing[0];
+    const revenueAccuracy = forecast.forecastedRevenue 
+      ? Math.abs(parseFloat(forecast.forecastedRevenue.toString()) - actualRevenue) / parseFloat(forecast.forecastedRevenue.toString()) * 100
+      : 0;
+    
+    return await db.update(forecastingData).set({
+      actualRevenue: actualRevenue.toString(),
+      actualOrders,
+      accuracy: (100 - Math.min(revenueAccuracy, 100)).toString(),
+    }).where(eq(forecastingData.date, date));
+  }
+}
+
+export async function getForecastingData(startDate: string, endDate: string) {
+  const db = await getDb();
+  return await db.select().from(forecastingData)
+    .where(and(
+      gte(forecastingData.date, startDate),
+      lte(forecastingData.date, endDate)
+    ))
+    .orderBy(asc(forecastingData.date));
+}
+
+export async function getForecastAccuracy(days = 30) {
+  const db = await getDb();
+  const data = await db.select().from(forecastingData)
+    .where(and(
+      isNotNull(forecastingData.accuracy),
+      gte(forecastingData.accuracy, sql`0`)
+    ))
+    .orderBy(desc(forecastingData.date))
+    .limit(days);
+  
+  if (data.length === 0) return 0;
+  const totalAccuracy = data.reduce((sum, row) => sum + parseFloat(row.accuracy?.toString() || '0'), 0);
+  return totalAccuracy / data.length;
+}
+
+// ─── ADVANCED ANALYTICS ─────────────────────────────────────────────
+export async function getRevenueByCategory(startDate: string, endDate: string) {
+  const db = await getDb();
+  return await db.select({
+    category: menuCategories.name,
+    revenue: sql`SUM(${orderItems.quantity} * ${orderItems.unitPrice})`,
+    itemCount: sql`COUNT(${orderItems.id})`,
+  })
+    .from(orderItems)
+    .innerJoin(orders, eq(orders.id, orderItems.orderId))
+    .innerJoin(menuItems, eq(menuItems.id, orderItems.menuItemId))
+    .innerJoin(menuCategories, eq(menuCategories.id, menuItems.categoryId))
+    .where(and(
+      gte(orders.createdAt, new Date(startDate)),
+      lte(orders.createdAt, new Date(endDate))
+    ))
+    .groupBy(menuCategories.id);
+}
+
+export async function getCustomerSegmentMetrics() {
+  const db = await getDb();
+  return await db.select({
+    segment: customerSegments.name,
+    customerCount: sql`COUNT(DISTINCT ${segmentMembers.customerId})`,
+    totalRevenue: sql`SUM(${orders.total})`,
+    averageOrderValue: sql`AVG(${orders.total})`,
+  })
+    .from(customerSegments)
+    .leftJoin(segmentMembers, eq(segmentMembers.segmentId, customerSegments.id))
+    .leftJoin(customers, eq(customers.id, segmentMembers.customerId))
+    .leftJoin(orders, eq(orders.customerId, customers.id))
+    .groupBy(customerSegments.id);
+}
+
+export async function getPeakHours(startDate: string, endDate: string) {
+  const db = await getDb();
+  return await db.select({
+    hour: sql`HOUR(${orders.createdAt})`,
+    orderCount: sql`COUNT(${orders.id})`,
+    totalRevenue: sql`SUM(${orders.total})`,
+    averageOrderValue: sql`AVG(${orders.total})`,
+  })
+    .from(orders)
+    .where(and(
+      gte(orders.createdAt, new Date(startDate)),
+      lte(orders.createdAt, new Date(endDate))
+    ))
+    .groupBy(sql`HOUR(${orders.createdAt})`)
+    .orderBy(sql`HOUR(${orders.createdAt})`);
 }
