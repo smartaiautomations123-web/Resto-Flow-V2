@@ -45,6 +45,7 @@ import LocationManagement from "./pages/LocationManagement";
 import PaymentDisputes from "./pages/PaymentDisputes";
 import LocationPricing from "./pages/LocationPricing";
 import UnifiedOrderQueue from "./pages/UnifiedOrderQueue";
+import Settings from "./pages/Settings";
 
 function Router() {
   return (
@@ -102,7 +103,8 @@ function Router() {
       <Route path="/profitability" component={() => <DashboardLayout><Profitability /></DashboardLayout>} />
       <Route path="/z-reports" component={() => <DashboardLayout><ZReports /></DashboardLayout>} />
 
-      {/* ─── Settings & Admin ──────────────────────────────── */}
+          {/* ─── Settings & Admin ─────────────────────── */}
+      <Route path="/settings" component={() => <DashboardLayout><Settings /></DashboardLayout>} />
       <Route path="/notifications" component={() => <DashboardLayout><NotificationCenter /></DashboardLayout>} />
       <Route path="/locations" component={() => <DashboardLayout><LocationManagement /></DashboardLayout>} />
       <Route path="/location-pricing" component={() => <DashboardLayout><LocationPricing /></DashboardLayout>} />

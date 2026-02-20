@@ -161,6 +161,7 @@ const menuGroups: MenuGroup[] = [
     label: "Settings & Admin",
     icon: MapPin,
     items: [
+      { icon: LayoutDashboard, label: "System Settings", path: "/settings" },
       { icon: MapPin, label: "Locations", path: "/locations" },
       { icon: CreditCard, label: "Location Pricing", path: "/location-pricing" },
     ],
