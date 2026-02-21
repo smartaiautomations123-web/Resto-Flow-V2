@@ -59,7 +59,7 @@ export default function TableOrdering() {
 
   const placeOrder = async () => {
     try {
-      const order = await createOrder.mutateAsync({
+      const order: any = await createOrder.mutateAsync({
         type: "dine_in",
         tableId: tableId || undefined,
         customerName: customerName || undefined,
@@ -136,38 +136,42 @@ export default function TableOrdering() {
         </div>
 
         {/* Items */}
-        <div className="space-y-3">
-          {filteredItems.map(item => {
-            const inCart = cart.find(c => c.menuItemId === item.id);
-            return (
-              <div key={item.id} className="flex items-center justify-between p-3 rounded-xl bg-card border border-border">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm">{item.name}</p>
-                    {item.isPopular && <Badge className="badge-warning text-xs">Popular</Badge>}
+        {filteredItems.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground bg-card rounded-xl border border-border">No items available.</div>
+        ) : (
+          <div className="space-y-3">
+            {filteredItems.map(item => {
+              const inCart = cart.find(c => c.menuItemId === item.id);
+              return (
+                <div key={item.id} className="flex items-center justify-between p-3 rounded-xl bg-card border border-border">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm">{item.name}</p>
+                      {item.isPopular && <Badge className="badge-warning text-xs">Popular</Badge>}
+                    </div>
+                    {item.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.description}</p>}
+                    <p className="text-sm font-bold text-primary mt-1">${Number(item.price).toFixed(2)}</p>
                   </div>
-                  {item.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.description}</p>}
-                  <p className="text-sm font-bold text-primary mt-1">${Number(item.price).toFixed(2)}</p>
+                  {inCart ? (
+                    <div className="flex items-center gap-1 ml-3">
+                      <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQty(cart.indexOf(inCart), -1)}>
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="font-medium w-6 text-center text-sm">{inCart.quantity}</span>
+                      <Button size="icon" className="h-8 w-8" onClick={() => updateQty(cart.indexOf(inCart), 1)}>
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" className="ml-3" onClick={() => addToCart(item)}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-                {inCart ? (
-                  <div className="flex items-center gap-1 ml-3">
-                    <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQty(cart.indexOf(inCart), -1)}>
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <span className="font-medium w-6 text-center text-sm">{inCart.quantity}</span>
-                    <Button size="icon" className="h-8 w-8" onClick={() => updateQty(cart.indexOf(inCart), 1)}>
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button size="sm" variant="outline" className="ml-3" onClick={() => addToCart(item)}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Fixed bottom bar */}

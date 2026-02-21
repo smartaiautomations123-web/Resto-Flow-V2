@@ -44,10 +44,9 @@ export default function CustomReportBuilder() {
     await createMutation.mutateAsync({
       name: reportName,
       type: reportType,
-      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
-      dateTo: dateTo ? new Date(dateTo) : undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
       metrics: selectedMetrics,
-      filters,
     });
 
     setReportName('');
@@ -58,13 +57,14 @@ export default function CustomReportBuilder() {
     setFilters({});
   };
 
-  const handleExport = async (reportId: number, format: 'pdf' | 'excel') => {
-    await exportMutation.mutateAsync({ reportId, format });
+  const handleExport = async (reportId: number, format: 'csv' | 'pdf') => {
+    const result = await exportMutation.mutateAsync({ id: reportId, format });
+    if (result?.success) alert(`Report "${result.name}" exported as ${result.format?.toUpperCase()}`);
   };
 
   const handleDelete = async (reportId: number) => {
     if (confirm('Are you sure you want to delete this report?')) {
-      await deleteMutation.mutateAsync(reportId);
+      await deleteMutation.mutateAsync({ id: reportId });
     }
   };
 
@@ -233,11 +233,11 @@ export default function CustomReportBuilder() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="text-sm text-gray-600">
-                      <p>Metrics: {report.metrics?.join(', ') || 'None selected'}</p>
-                      {report.dateFrom && report.dateTo && (
+                      <p>Metrics: {(report as any).metrics?.join(', ') || 'None selected'}</p>
+                      {(report as any).dateFrom && (report as any).dateTo && (
                         <p>
-                          Period: {new Date(report.dateFrom).toLocaleDateString()} -{' '}
-                          {new Date(report.dateTo).toLocaleDateString()}
+                          Period: {new Date((report as any).dateFrom).toLocaleDateString()} -{' '}
+                          {new Date((report as any).dateTo).toLocaleDateString()}
                         </p>
                       )}
                     </div>
@@ -255,7 +255,7 @@ export default function CustomReportBuilder() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleExport(report.id, 'excel')}
+                        onClick={() => handleExport(report.id, 'csv')}
                         disabled={exportMutation.isPending}
                         className="flex-1"
                       >

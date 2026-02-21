@@ -28,7 +28,7 @@ export default function Reports() {
   const { data: hourlyTrend } = trpc.salesAnalytics.hourlySalesTrend.useQuery({ date: hourlyDate });
   const { data: staffPerf } = trpc.salesAnalytics.staffPerformance.useQuery({ startDate: stableDateRange.from, endDate: stableDateRange.to });
 
-  const totalLabour = labourCosts?.reduce((s: number, l: any) => s + Number(l.totalHours) * Number(l.hourlyRate || 0), 0) || 0;
+  const totalLabour = labourCosts?.totalLabourCost || 0;
   const revenue = Number(stats?.totalRevenue || 0);
   const labourPct = revenue > 0 ? ((totalLabour / revenue) * 100).toFixed(1) : "0";
 
@@ -80,7 +80,7 @@ export default function Reports() {
         <Card className="bg-card border-border">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm text-muted-foreground">Avg. Ticket</p><p className="text-2xl font-bold mt-1">${Number(stats?.avgTicket || 0).toFixed(2)}</p></div>
+              <div><p className="text-sm text-muted-foreground">Avg. Ticket</p><p className="text-2xl font-bold mt-1">${((revenue / (stats?.totalOrders || 1)) || 0).toFixed(2)}</p></div>
               <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center"><TrendingUp className="h-6 w-6 text-green-500" /></div>
             </div>
           </CardContent>
@@ -191,13 +191,13 @@ export default function Reports() {
               {topItems && topItems.length > 0 ? (
                 <div className="space-y-3">
                   {topItems.map((item: any, i: number) => {
-                    const maxQty = Number(topItems[0].totalQty);
-                    const pct = maxQty > 0 ? (Number(item.totalQty) / maxQty) * 100 : 0;
+                    const maxQty = Number(topItems[0].quantity);
+                    const pct = maxQty > 0 ? (Number(item.quantity) / maxQty) * 100 : 0;
                     return (
                       <div key={i}>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium">{i + 1}. {item.name}</span>
-                          <span className="text-muted-foreground">{item.totalQty} sold &middot; ${Number(item.totalRevenue).toFixed(2)}</span>
+                          <span className="font-medium">{i + 1}. {item.itemName || item.name}</span>
+                          <span className="text-muted-foreground">{item.quantity} sold &middot; ${Number(item.revenue).toFixed(2)}</span>
                         </div>
                         <div className="h-2 bg-secondary rounded-full overflow-hidden">
                           <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -285,9 +285,9 @@ export default function Reports() {
                         <tr key={i} className="border-b border-border/50 hover:bg-secondary/30">
                           <td className="p-3">
                             {i === 0 ? <Badge className="bg-yellow-500/20 text-yellow-400">1st</Badge> :
-                             i === 1 ? <Badge className="bg-gray-400/20 text-gray-300">2nd</Badge> :
-                             i === 2 ? <Badge className="bg-orange-500/20 text-orange-400">3rd</Badge> :
-                             <span className="text-sm text-muted-foreground">{i + 1}</span>}
+                              i === 1 ? <Badge className="bg-gray-400/20 text-gray-300">2nd</Badge> :
+                                i === 2 ? <Badge className="bg-orange-500/20 text-orange-400">3rd</Badge> :
+                                  <span className="text-sm text-muted-foreground">{i + 1}</span>}
                           </td>
                           <td className="p-3 font-medium text-sm">{s.staffName}</td>
                           <td className="p-3 text-sm text-muted-foreground capitalize">{s.role}</td>
@@ -309,10 +309,10 @@ export default function Reports() {
           <Card className="bg-card border-border">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Labour Costs</CardTitle>
-              {labourCosts && <Button variant="outline" size="sm" onClick={() => exportCSV(labourCosts, "labour-costs")}><Download className="h-3 w-3 mr-1" />CSV</Button>}
+              {labourCosts && <Button variant="outline" size="sm" onClick={() => exportCSV(labourCosts.entries || [], "labour-costs")}><Download className="h-3 w-3 mr-1" />CSV</Button>}
             </CardHeader>
             <CardContent>
-              {labourCosts && labourCosts.length > 0 ? (
+              {labourCosts && labourCosts.entries && labourCosts.entries.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -324,17 +324,17 @@ export default function Reports() {
                       </tr>
                     </thead>
                     <tbody>
-                      {labourCosts.map((l: any, i: number) => (
+                      {labourCosts.entries.map((l: any, i: number) => (
                         <tr key={i} className="border-b border-border/50">
                           <td className="p-3 font-medium text-sm">{l.staffName}</td>
-                          <td className="p-3 text-sm">{Number(l.totalHours).toFixed(1)}h</td>
+                          <td className="p-3 text-sm">{Number(l.hoursWorked).toFixed(1)}h</td>
                           <td className="p-3 text-sm">${Number(l.hourlyRate || 0).toFixed(2)}/hr</td>
-                          <td className="p-3 text-sm font-medium">${(Number(l.totalHours) * Number(l.hourlyRate || 0)).toFixed(2)}</td>
+                          <td className="p-3 text-sm font-medium">${Number(l.totalCost).toFixed(2)}</td>
                         </tr>
                       ))}
                       <tr className="font-bold">
                         <td className="p-3">Total</td>
-                        <td className="p-3">{labourCosts.reduce((s: number, l: any) => s + Number(l.totalHours), 0).toFixed(1)}h</td>
+                        <td className="p-3">{Number(labourCosts.totalHours || 0).toFixed(1)}h</td>
                         <td className="p-3"></td>
                         <td className="p-3 text-primary">${totalLabour.toFixed(2)}</td>
                       </tr>

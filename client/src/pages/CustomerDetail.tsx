@@ -52,7 +52,7 @@ export default function CustomerDetail() {
     );
   }
 
-  if (!customerData?.customer) {
+  if (!customerData) {
     return (
       <div className="container py-8">
         <Button variant="ghost" onClick={() => navigate("/customers")}>
@@ -65,9 +65,9 @@ export default function CustomerDetail() {
     );
   }
 
-  const customer = customerData.customer;
+  const customer = customerData;
   const orderHistory = customerData.orderHistory || [];
-  const totalLoyaltyPoints = loyaltyHistory?.reduce((sum, order) => sum + (order.total as any), 0) || 0;
+  const totalLoyaltyPoints = loyaltyHistory?.currentPoints || 0;
 
   const handleRepeatOrder = (orderId: number) => {
     setRepeatOrderId(orderId);
@@ -158,7 +158,7 @@ export default function CustomerDetail() {
                         {formatDistanceToNow(new Date(order.createdAt), { addSuffix: true })}
                       </p>
                       <p className="text-sm mt-1">
-                        Payment: {order.paymentMethod || "Unpaid"}
+                        Payment: Unknown
                       </p>
                     </div>
                     <div className="text-right">
@@ -201,16 +201,16 @@ export default function CustomerDetail() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="font-semibold">Order Number:</span> {orderDetails.order.orderNumber}
+                  <span className="font-semibold">Order Number:</span> {orderDetails.orderNumber}
                 </div>
                 <div>
-                  <span className="font-semibold">Status:</span> {orderDetails.order.status}
+                  <span className="font-semibold">Status:</span> {orderDetails.status}
                 </div>
                 <div>
-                  <span className="font-semibold">Date:</span> {new Date(orderDetails.order.createdAt).toLocaleDateString()}
+                  <span className="font-semibold">Date:</span> {new Date(orderDetails.createdAt).toLocaleDateString()}
                 </div>
                 <div>
-                  <span className="font-semibold">Total:</span> ${parseFloat(orderDetails.order.total as any).toFixed(2)}
+                  <span className="font-semibold">Total:</span> ${parseFloat(orderDetails.total as any).toFixed(2)}
                 </div>
               </div>
 

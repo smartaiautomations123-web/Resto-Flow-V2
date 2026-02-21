@@ -275,7 +275,7 @@ export default function MenuManagement() {
               <div>
                 <h4 className="font-semibold mb-3">Recipe Breakdown</h4>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {getCostAnalysis.data.recipeBreakdown.map((r: any) => (
+                  {(getCostAnalysis.data as any).recipeBreakdown.map((r: any) => (
                     <div key={r.ingredientId} className="flex justify-between text-sm p-2 border border-border/50 rounded">
                       <div>
                         <p className="font-medium">{r.ingredientName}</p>

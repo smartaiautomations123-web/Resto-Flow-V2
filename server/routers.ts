@@ -74,13 +74,13 @@ export const appRouter = router({
     create: protectedProcedure.input(z.object({
       staffId: z.number(), date: z.string(), startTime: z.string(), endTime: z.string(),
       role: z.string().optional(), notes: z.string().optional(),
-    })).mutation(({ input }) => db.createRecipe(input)),
+    })).mutation(({ input }) => db.createShift(input)),
     update: protectedProcedure.input(z.object({
       id: z.number(), staffId: z.number().optional(), date: z.string().optional(),
       startTime: z.string().optional(), endTime: z.string().optional(),
       role: z.string().optional(), notes: z.string().optional(),
-    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateRecipe(id, data); }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteRecipe(input.id)),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateShift(id, data); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteShift(input.id)),
   }),
 
   // ─── Menu Categories ─────────────────────────────────────────────
@@ -235,7 +235,12 @@ export const appRouter = router({
       isActive: z.boolean().optional(),
     })).mutation(({ input }) => { const { id, ...data } = input; return db.updateIngredient(id, data); }),
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteIngredient(input.id)),
-    lowStock: protectedProcedure.query(() => db.listIngredients()),
+    lowStock: protectedProcedure.query(() => db.getLowStockIngredients()),
+    adjustStock: protectedProcedure.input(z.object({
+      id: z.number(),
+      delta: z.number(),
+      reason: z.string().optional(),
+    })).mutation(({ input }) => db.adjustIngredientStock(input.id, input.delta, input.reason || "manual adjustment")),
   }),
 
   // ─── Recipes ─────────────────────────────────────────────────────
@@ -266,6 +271,28 @@ export const appRouter = router({
       address: z.string().optional(), notes: z.string().optional(), isActive: z.boolean().optional(),
     })).mutation(({ input }) => { const { id, ...data } = input; return db.updateSupplier(id, data); }),
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteSupplier(input.id)),
+    getPerformance: protectedProcedure.input(z.object({ supplierId: z.number() })).query(({ input }) => db.getSupplierPerformance(input.supplierId)),
+    generateScorecard: protectedProcedure.input(z.object({ supplierId: z.number() })).query(({ input }) => db.generateSupplierScorecard(input.supplierId)),
+  }),
+
+  // ─── Supplier Performance (dedicated router) ──────────────────────
+  supplierPerformance: router({
+    recordPerformance: protectedProcedure.input(z.object({
+      supplierId: z.number(),
+      month: z.number(),
+      year: z.number(),
+      totalOrders: z.number(),
+      onTimeDeliveries: z.number(),
+      lateDeliveries: z.number(),
+      qualityRating: z.string(),
+    })).mutation(({ input }) => db.recordSupplierPerformance(
+      input.supplierId, input.month, input.year,
+      input.totalOrders, input.onTimeDeliveries, input.lateDeliveries, input.qualityRating
+    )),
+    getPerformance: protectedProcedure.input(z.object({ supplierId: z.number() })).query(({ input }) => db.getSupplierPerformance(input.supplierId)),
+    getScorecard: protectedProcedure.input(z.object({ supplierId: z.number() })).query(({ input }) => db.generateSupplierScorecard(input.supplierId)),
+    recordPrice: protectedProcedure.input(z.object({ supplierId: z.number(), ingredientId: z.number(), price: z.string(), unit: z.string() })).mutation(({ input }) => db.recordSupplierPrice(input.supplierId, input.ingredientId, input.price, input.unit)),
+    getPriceHistory: protectedProcedure.input(z.object({ supplierId: z.number(), ingredientId: z.number() })).query(({ input }) => db.getSupplierPriceHistory(input.supplierId, input.ingredientId)),
   }),
 
   // ─── Purchase Orders ─────────────────────────────────────────────
@@ -296,6 +323,23 @@ export const appRouter = router({
     }),
     items: protectedProcedure.input(z.object({ purchaseOrderId: z.number() }))
       .query(({ input }) => db.getPurchaseOrderItems(input.purchaseOrderId)),
+    receiveAndUpdateStock: protectedProcedure.input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const po = await db.getPurchaseOrderById(input.id);
+        if (!po) throw new Error("Purchase order not found");
+        // Mark PO as received
+        await db.updatePurchaseOrder(input.id, { status: "received", receivedAt: new Date() });
+        // Bump ingredient stock for each line item
+        const items = await db.getPurchaseOrderItems(input.id);
+        for (const item of items) {
+          if (item.ingredientId) {
+            await db.adjustIngredientStock(item.ingredientId, Number(item.quantity), `PO-${input.id} received`);
+          }
+        }
+        return { success: true, itemsUpdated: items.length };
+      }),
+    cancel: protectedProcedure.input(z.object({ id: z.number() }))
+      .mutation(({ input }) => db.updatePurchaseOrder(input.id, { status: "cancelled" })),
   }),
 
   // ─── Customers ───────────────────────────────────────────────────
@@ -312,7 +356,7 @@ export const appRouter = router({
       phone: z.string().optional(), notes: z.string().optional(), birthday: z.string().optional(),
     })).mutation(({ input }) => { const { id, ...data } = input; return db.updateCustomer(id, data); }),
     addPoints: protectedProcedure.input(z.object({ customerId: z.number(), points: z.number() }))
-      .mutation(({ input }) => db.getLoyaltyPointsHistory(input.customerId)),
+      .mutation(({ input }) => db.addLoyaltyPoints(input.customerId, input.points)),
   }),
 
   // ─── Customer Segmentation ───────────────────────────────────────
@@ -325,13 +369,13 @@ export const appRouter = router({
     update: protectedProcedure.input(z.object({
       id: z.number(), name: z.string().optional(), description: z.string().optional(), color: z.string().optional(),
     })).mutation(({ input }) => db.updateSegment(input.id, input.name || '', input.description || '', input.color || '')),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.updateSegment(input.id, '', '', '')),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteSegment(input.id)),
     addCustomer: protectedProcedure.input(z.object({ customerId: z.number(), segmentId: z.number() }))
-      .mutation(({ input }) => db.getSegmentMemberCount(input.segmentId)),
+      .mutation(({ input }) => db.addCustomerToSegment(input.customerId, input.segmentId)),
     removeCustomer: protectedProcedure.input(z.object({ customerId: z.number(), segmentId: z.number() }))
-      .mutation(({ input }) => db.getSegmentMemberCount(input.segmentId)),
+      .mutation(({ input }) => db.removeCustomerFromSegment(input.customerId, input.segmentId)),
     members: protectedProcedure.input(z.object({ segmentId: z.number() }))
-      .query(({ input }) => db.getSegmentMemberCount(input.segmentId)),
+      .query(({ input }) => db.exportSegmentCustomers(input.segmentId)),
     memberCount: protectedProcedure.input(z.object({ segmentId: z.number() }))
       .query(({ input }) => db.getSegmentMemberCount(input.segmentId)),
     export: protectedProcedure.input(z.object({ segmentId: z.number() }))
@@ -394,7 +438,7 @@ export const appRouter = router({
     updateStatus: protectedProcedure.input(z.object({
       id: z.number(),
       status: z.enum(["waiting", "called", "seated", "cancelled"]),
-    })).mutation(({ input }) => db.removeFromWaitlist(input.id)),
+    })).mutation(({ input }) => db.updateWaitlistStatus(input.id, input.status)),
     remove: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.removeFromWaitlist(input.id)),
     promote: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.promoteFromWaitlist(input.id)),
     stats: protectedProcedure.query(() => db.getWaitlistStats()),
@@ -424,7 +468,7 @@ export const appRouter = router({
     byCategory: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
       .query(({ input }) => db.getProfitabilityByCategory(input.dateFrom, input.dateTo)),
     byShift: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string() }))
-      .query(({ input }) => db.getProfitabilityByCategory(input.dateFrom, input.dateTo)),
+      .query(({ input }) => db.getProfitabilityByShift(input.dateFrom, input.dateTo)),
     topItems: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string(), limit: z.number().optional() }))
       .query(({ input }) => db.getTopProfitableItems(input.limit || 10, input.dateFrom, input.dateTo)),
     bottomItems: protectedProcedure.input(z.object({ dateFrom: z.string(), dateTo: z.string(), limit: z.number().optional() }))
@@ -695,7 +739,7 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
     getDetails: protectedProcedure.input(z.object({ reportId: z.number() }))
       .query(({ input }) => db.getZReportDetails(input.reportId)),
     delete: adminProcedure.input(z.object({ reportId: z.number() }))
-      .mutation(({ input }) => db.getZReportByDate(String(input.reportId))),
+      .mutation(({ input }) => db.deleteZReport(input.reportId)),
   }),
 
   voidRefunds: router({
@@ -709,7 +753,13 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
     })).mutation(({ input, ctx }) => db.updateOrder(input.orderId, { voidReason: input.reason, voidRequestedBy: ctx.user.id, voidRequestedAt: new Date() })),
     approveVoid: adminProcedure.input(z.object({
       orderId: z.number(),
+      refundMethod: z.enum(["original_payment", "store_credit", "cash"]).optional(),
+      notes: z.string().optional(),
     })).mutation(({ input, ctx }) => db.approveVoid(input.orderId, ctx.user.id)),
+    rejectVoid: adminProcedure.input(z.object({
+      orderId: z.number(),
+      notes: z.string().optional(),
+    })).mutation(({ input, ctx }) => db.rejectVoid(input.orderId, ctx.user.id, input.notes)),
 
   }),
 
@@ -878,55 +928,21 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
     getPreferences: protectedProcedure.input(z.object({ userId: z.number() })).query(({ input }) => db.getNotificationPreferences(input.userId)),
     updatePreferences: protectedProcedure.input(z.object({ userId: z.number(), prefs: z.any() })).mutation(({ input }) => db.updateNotificationPreferences(input.userId, input.prefs)),
   }),
+
   recipeCostAnalysis: router({
     recordCostHistory: protectedProcedure.input(z.object({ recipeId: z.number(), totalCost: z.string(), ingredientCount: z.number() })).mutation(({ input }) => db.recordRecipeCostHistory(input.recipeId, input.totalCost, input.ingredientCount)),
     getCostHistory: protectedProcedure.input(z.object({ recipeId: z.number() })).query(({ input }) => db.getRecipeCostHistory(input.recipeId)),
     compareCostVsPrice: protectedProcedure.input(z.object({ recipeId: z.number(), menuItemId: z.number() })).query(({ input }) => db.compareCostVsPrice(input.recipeId, input.menuItemId)),
   }),
-  supplierPerformance: router({
-    recordPerformance: protectedProcedure.input(z.object({ supplierId: z.number(), month: z.number(), year: z.number(), totalOrders: z.number(), onTimeDeliveries: z.number(), lateDeliveries: z.number(), qualityRating: z.string() })).mutation(({ input }) => db.recordSupplierPerformance(input.supplierId, input.month, input.year, input.totalOrders, input.onTimeDeliveries, input.lateDeliveries, input.qualityRating)),
-    getPerformance: protectedProcedure.input(z.object({ supplierId: z.number() })).query(({ input }) => db.getSupplierPerformance(input.supplierId)),
-    recordPrice: protectedProcedure.input(z.object({ supplierId: z.number(), ingredientId: z.number(), price: z.string(), unit: z.string() })).mutation(({ input }) => db.recordSupplierPrice(input.supplierId, input.ingredientId, input.price, input.unit)),
-    getPriceHistory: protectedProcedure.input(z.object({ supplierId: z.number(), ingredientId: z.number() })).query(({ input }) => db.getSupplierPriceHistory(input.supplierId, input.ingredientId)),
-    generateScorecard: protectedProcedure.input(z.object({ supplierId: z.number() })).query(({ input }) => db.generateSupplierScorecard(input.supplierId)),
-  }),
-
-  // ─── Module 5.1 New Features ────────────────────────────────────────
-  tableMerges: router({
-    merge: protectedProcedure.input(z.object({ primaryTableId: z.number(), tableIds: z.array(z.number()) })).mutation(({ input, ctx }) => db.mergeTables(input.primaryTableId, input.tableIds, ctx.user?.id)),
-    unmerge: protectedProcedure.input(z.object({ mergeId: z.number() })).mutation(({ input }) => db.unmergeTables(input.mergeId)),
-    getActive: protectedProcedure.query(() => db.getActiveMerges()),
-  }),
-  splitBills: router({
-    create: protectedProcedure.input(z.object({ orderId: z.number(), splitType: z.enum(["equal", "by_item", "by_amount", "by_percentage"]), totalParts: z.number() })).mutation(({ input, ctx }) => db.createSplitBill(input.orderId, input.splitType, input.totalParts, ctx.user?.id)),
-    addPart: protectedProcedure.input(z.object({ splitBillId: z.number(), partNumber: z.number(), amount: z.string(), itemIds: z.array(z.number()).optional() })).mutation(({ input }) => db.addSplitBillPart(input.splitBillId, input.partNumber, input.amount, input.itemIds)),
-    payPart: protectedProcedure.input(z.object({ partId: z.number(), paymentMethod: z.enum(["card", "cash", "online"]), tipAmount: z.string().optional() })).mutation(({ input }) => db.paySplitBillPart(input.partId, input.paymentMethod, input.tipAmount)),
-    getByOrder: protectedProcedure.input(z.object({ orderId: z.number() })).query(({ input }) => db.getSplitBillByOrder(input.orderId)),
-  }),
-  discountsManager: router({
-    list: protectedProcedure.input(z.object({ activeOnly: z.boolean().optional() }).optional()).query(({ input }) => db.listDiscounts(input?.activeOnly ?? true)),
-    create: protectedProcedure.input(z.object({ name: z.string(), type: z.enum(["percentage", "fixed", "bogo"]), value: z.string(), minOrderAmount: z.string().optional(), maxDiscountAmount: z.string().optional(), requiresApproval: z.boolean().optional(), approvalThreshold: z.string().optional(), validFrom: z.date().optional(), validTo: z.date().optional() })).mutation(({ input }) => db.createDiscount(input)),
-    applyToOrder: protectedProcedure.input(z.object({ orderId: z.number(), discountName: z.string(), discountType: z.enum(["percentage", "fixed", "bogo", "manual"]), discountValue: z.string(), discountAmount: z.string(), discountId: z.number().optional(), approvedBy: z.number().optional() })).mutation(({ input }) => db.applyDiscountToOrder(input.orderId, input.discountName, input.discountType, input.discountValue, input.discountAmount, input.discountId, input.approvedBy)),
-    getOrderDiscounts: protectedProcedure.input(z.object({ orderId: z.number() })).query(({ input }) => db.getOrderDiscounts(input.orderId)),
-  }),
-  tips: router({
-    addToOrder: protectedProcedure.input(z.object({ orderId: z.number(), tipAmount: z.string() })).mutation(({ input }) => db.addTipToOrder(input.orderId, input.tipAmount)),
-  }),
-  paymentDisputes: router({
-    create: protectedProcedure.input(z.object({ orderId: z.number(), transactionId: z.number().optional(), disputeType: z.enum(["chargeback", "inquiry", "fraud", "duplicate", "other"]), amount: z.string(), reason: z.string().optional() })).mutation(({ input }) => db.createPaymentDispute(input)),
-    list: protectedProcedure.input(z.object({ status: z.string().optional() }).optional()).query(({ input }) => db.listPaymentDisputes(input?.status)),
-    update: protectedProcedure.input(z.object({ id: z.number(), status: z.string().optional(), evidence: z.string().optional(), resolvedBy: z.number().optional() })).mutation(({ input }) => db.updatePaymentDispute(input.id, input)),
-  }),
-  locationPrices: router({
-    set: protectedProcedure.input(z.object({ locationId: z.number(), menuItemId: z.number(), price: z.string() })).mutation(({ input }) => db.setLocationMenuPrice(input.locationId, input.menuItemId, input.price)),
-    getByLocation: protectedProcedure.input(z.object({ locationId: z.number() })).query(({ input }) => db.getLocationMenuPrices(input.locationId)),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteLocationMenuPrice(input.id)),
-  }),
   salesAnalytics: router({
     hourlySalesTrend: protectedProcedure.input(z.object({ date: z.string().optional() }).optional()).query(({ input }) => db.getHourlySalesTrend(input?.date)),
     staffPerformance: protectedProcedure.input(z.object({ startDate: z.string().optional(), endDate: z.string().optional() }).optional()).query(({ input }) => db.getStaffSalesPerformance(input?.startDate, input?.endDate)),
     unifiedQueue: protectedProcedure.query(() => db.getUnifiedOrderQueue()),
+    getSalesMetrics: protectedProcedure.input(z.object({ startDate: z.string(), endDate: z.string() }))
+      .query(({ input }) => db.getKPIDashboardMetrics(input.startDate, input.endDate)),
   }),
+
+  // ─── Profitability (Moved to line 465) ──────────────────────────────────────────────────────
 
   // ─── Prime Cost & Financial Analytics ────────────────────────────────────
   primeCost: router({
@@ -962,7 +978,7 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
       tax: z.string(),
       total: z.string(),
       notes: z.string().optional(),
-     })).mutation(({ input }) => db.createInvoice({
+    })).mutation(({ input }) => db.createInvoice({
       ...input,
       invoiceDate: new Date(input.invoiceDate),
       dueDate: new Date(input.dueDate),
@@ -1062,28 +1078,28 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
   }),
   settings: router({
     getSystemSettings: protectedProcedure.query(() => db.getSystemSettings()),
-    updateSystemSettings: protectedProcedure.input(z.object({restaurantName: z.string().optional(),restaurantLogo: z.string().optional(),timezone: z.string().optional(),currency: z.string().optional(),language: z.string().optional(),dateFormat: z.string().optional(),timeFormat: z.string().optional(),taxRate: z.string().optional(),businessLicense: z.string().optional(),businessPhone: z.string().optional(),businessEmail: z.string().optional(),businessAddress: z.string().optional()})).mutation(({ input }) => db.updateSystemSettings(input)),
+    updateSystemSettings: protectedProcedure.input(z.object({ restaurantName: z.string().optional(), restaurantLogo: z.string().optional(), timezone: z.string().optional(), currency: z.string().optional(), language: z.string().optional(), dateFormat: z.string().optional(), timeFormat: z.string().optional(), taxRate: z.string().optional(), businessLicense: z.string().optional(), businessPhone: z.string().optional(), businessEmail: z.string().optional(), businessAddress: z.string().optional() })).mutation(({ input }) => db.updateSystemSettings(input)),
     getUserPreferences: protectedProcedure.input(z.object({ userId: z.number() })).query(({ input }) => db.getUserPreferences(input.userId)),
-    updateUserPreferences: protectedProcedure.input(z.object({userId: z.number(),theme: z.enum(['light', 'dark', 'auto']).optional(),language: z.string().optional(),timezone: z.string().optional(),sidebarCollapsed: z.boolean().optional(),compactMode: z.boolean().optional(),showNotifications: z.boolean().optional(),soundEnabled: z.boolean().optional(),emailDigest: z.enum(['none', 'daily', 'weekly', 'monthly']).optional(),defaultLocation: z.number().optional()})).mutation(({ input }) => { const { userId, ...data } = input; return db.updateUserPreferences(userId, data); }),
+    updateUserPreferences: protectedProcedure.input(z.object({ userId: z.number(), theme: z.enum(['light', 'dark', 'auto']).optional(), language: z.string().optional(), timezone: z.string().optional(), sidebarCollapsed: z.boolean().optional(), compactMode: z.boolean().optional(), showNotifications: z.boolean().optional(), soundEnabled: z.boolean().optional(), emailDigest: z.enum(['none', 'daily', 'weekly', 'monthly']).optional(), defaultLocation: z.number().optional() })).mutation(({ input }) => { const { userId, ...data } = input; return db.updateUserPreferences(userId, data); }),
     getEmailSettings: protectedProcedure.query(() => db.getEmailSettings()),
-    updateEmailSettings: protectedProcedure.input(z.object({smtpHost: z.string().optional(),smtpPort: z.number().optional(),smtpUser: z.string().optional(),smtpPassword: z.string().optional(),fromEmail: z.string().optional(),fromName: z.string().optional(),isEnabled: z.boolean().optional(),useTLS: z.boolean().optional()})).mutation(({ input }) => db.updateEmailSettings(input)),
+    updateEmailSettings: protectedProcedure.input(z.object({ smtpHost: z.string().optional(), smtpPort: z.number().optional(), smtpUser: z.string().optional(), smtpPassword: z.string().optional(), fromEmail: z.string().optional(), fromName: z.string().optional(), isEnabled: z.boolean().optional(), useTLS: z.boolean().optional() })).mutation(({ input }) => db.updateEmailSettings(input)),
     testEmailSettings: protectedProcedure.mutation(() => db.testEmailSettings()),
     getPaymentSettings: protectedProcedure.query(() => db.getPaymentSettings()),
-    updatePaymentSettings: protectedProcedure.input(z.object({stripePublishableKey: z.string().optional(),stripeSecretKey: z.string().optional(),stripeEnabled: z.boolean().optional(),squareAccessToken: z.string().optional(),squareEnabled: z.boolean().optional(),paypalClientId: z.string().optional(),paypalClientSecret: z.string().optional(),paypalEnabled: z.boolean().optional(),cashPaymentEnabled: z.boolean().optional(),checkPaymentEnabled: z.boolean().optional()})).mutation(({ input }) => db.updatePaymentSettings(input)),
+    updatePaymentSettings: protectedProcedure.input(z.object({ stripePublishableKey: z.string().optional(), stripeSecretKey: z.string().optional(), stripeEnabled: z.boolean().optional(), squareAccessToken: z.string().optional(), squareEnabled: z.boolean().optional(), paypalClientId: z.string().optional(), paypalClientSecret: z.string().optional(), paypalEnabled: z.boolean().optional(), cashPaymentEnabled: z.boolean().optional(), checkPaymentEnabled: z.boolean().optional() })).mutation(({ input }) => db.updatePaymentSettings(input)),
     getDeliverySettings: protectedProcedure.query(() => db.getDeliverySettings()),
-    updateDeliverySettings: protectedProcedure.input(z.object({internalDeliveryEnabled: z.boolean().optional(),thirdPartyDeliveryEnabled: z.boolean().optional(),defaultDeliveryFee: z.string().optional(),minOrderForDelivery: z.string().optional(),maxDeliveryDistance: z.number().optional(),deliveryTimeEstimate: z.number().optional()})).mutation(({ input }) => db.updateDeliverySettings(input)),
+    updateDeliverySettings: protectedProcedure.input(z.object({ internalDeliveryEnabled: z.boolean().optional(), thirdPartyDeliveryEnabled: z.boolean().optional(), defaultDeliveryFee: z.string().optional(), minOrderForDelivery: z.string().optional(), maxDeliveryDistance: z.number().optional(), deliveryTimeEstimate: z.number().optional() })).mutation(({ input }) => db.updateDeliverySettings(input)),
     getReceiptSettings: protectedProcedure.query(() => db.getReceiptSettings()),
-    updateReceiptSettings: protectedProcedure.input(z.object({receiptHeader: z.string().optional(),receiptFooter: z.string().optional(),showItemDescription: z.boolean().optional(),showItemPrice: z.boolean().optional(),showTaxBreakdown: z.boolean().optional(),showDiscounts: z.boolean().optional(),showPaymentMethod: z.boolean().optional(),showServerName: z.boolean().optional(),showTableNumber: z.boolean().optional(),printLogo: z.boolean().optional(),receiptWidth: z.number().optional()})).mutation(({ input }) => db.updateReceiptSettings(input)),
+    updateReceiptSettings: protectedProcedure.input(z.object({ receiptHeader: z.string().optional(), receiptFooter: z.string().optional(), showItemDescription: z.boolean().optional(), showItemPrice: z.boolean().optional(), showTaxBreakdown: z.boolean().optional(), showDiscounts: z.boolean().optional(), showPaymentMethod: z.boolean().optional(), showServerName: z.boolean().optional(), showTableNumber: z.boolean().optional(), printLogo: z.boolean().optional(), receiptWidth: z.number().optional() })).mutation(({ input }) => db.updateReceiptSettings(input)),
     getSecuritySettings: protectedProcedure.query(() => db.getSecuritySettings()),
-    updateSecuritySettings: protectedProcedure.input(z.object({twoFactorAuthEnabled: z.boolean().optional(),ssoEnabled: z.boolean().optional(),ssoProvider: z.string().optional(),sessionTimeout: z.number().optional(),passwordMinLength: z.number().optional(),passwordRequireUppercase: z.boolean().optional(),passwordRequireNumbers: z.boolean().optional(),passwordRequireSpecialChars: z.boolean().optional(),passwordExpiryDays: z.number().optional(),ipWhitelistEnabled: z.boolean().optional()})).mutation(({ input }) => db.updateSecuritySettings(input)),
+    updateSecuritySettings: protectedProcedure.input(z.object({ twoFactorAuthEnabled: z.boolean().optional(), ssoEnabled: z.boolean().optional(), ssoProvider: z.string().optional(), sessionTimeout: z.number().optional(), passwordMinLength: z.number().optional(), passwordRequireUppercase: z.boolean().optional(), passwordRequireNumbers: z.boolean().optional(), passwordRequireSpecialChars: z.boolean().optional(), passwordExpiryDays: z.number().optional(), ipWhitelistEnabled: z.boolean().optional() })).mutation(({ input }) => db.updateSecuritySettings(input)),
     createApiKey: protectedProcedure.input(z.object({ userId: z.number(), name: z.string(), keyHash: z.string() })).mutation(({ input }) => db.createApiKey(input.userId, input.name, input.keyHash)),
     listApiKeys: protectedProcedure.input(z.object({ userId: z.number() })).query(({ input }) => db.listApiKeys(input.userId)),
     revokeApiKey: protectedProcedure.input(z.object({ keyId: z.number() })).mutation(({ input }) => db.revokeApiKey(input.keyId)),
     getApiKeyById: protectedProcedure.input(z.object({ keyId: z.number() })).query(({ input }) => db.getApiKeyById(input.keyId)),
     getAuditLogSettings: protectedProcedure.query(() => db.getAuditLogSettings()),
-    updateAuditLogSettings: protectedProcedure.input(z.object({enableAuditLogging: z.boolean().optional(),logUserActions: z.boolean().optional(),logDataChanges: z.boolean().optional(),logLoginAttempts: z.boolean().optional(),logPayments: z.boolean().optional(),retentionDays: z.number().optional()})).mutation(({ input }) => db.updateAuditLogSettings(input)),
+    updateAuditLogSettings: protectedProcedure.input(z.object({ enableAuditLogging: z.boolean().optional(), logUserActions: z.boolean().optional(), logDataChanges: z.boolean().optional(), logLoginAttempts: z.boolean().optional(), logPayments: z.boolean().optional(), retentionDays: z.number().optional() })).mutation(({ input }) => db.updateAuditLogSettings(input)),
     getBackupSettings: protectedProcedure.query(() => db.getBackupSettings()),
-    updateBackupSettings: protectedProcedure.input(z.object({autoBackupEnabled: z.boolean().optional(),backupFrequency: z.enum(['hourly', 'daily', 'weekly', 'monthly']).optional(),backupTime: z.string().optional(),retentionDays: z.number().optional(),s3BucketName: z.string().optional(),s3Enabled: z.boolean().optional()})).mutation(({ input }) => db.updateBackupSettings(input)),
+    updateBackupSettings: protectedProcedure.input(z.object({ autoBackupEnabled: z.boolean().optional(), backupFrequency: z.enum(['hourly', 'daily', 'weekly', 'monthly']).optional(), backupTime: z.string().optional(), retentionDays: z.number().optional(), s3BucketName: z.string().optional(), s3Enabled: z.boolean().optional() })).mutation(({ input }) => db.updateBackupSettings(input)),
     triggerManualBackup: protectedProcedure.mutation(() => db.triggerManualBackup()),
     getLocalizationSettings: protectedProcedure.query(() => db.getLocalizationSettings()),
     getDefaultLanguage: protectedProcedure.query(() => db.getDefaultLanguage()),
@@ -1092,12 +1108,126 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
     setDefaultLanguage: protectedProcedure.input(z.object({ language: z.string() })).mutation(({ input }) => db.setDefaultLanguage(input.language)),
     getCurrencySettings: protectedProcedure.query(() => db.getCurrencySettings()),
     getDefaultCurrency: protectedProcedure.query(() => db.getDefaultCurrency()),
-    addCurrency: protectedProcedure.input(z.object({currencyCode: z.string(),currencyName: z.string(),currencySymbol: z.string(),exchangeRate: z.string().optional()})).mutation(({ input }) => db.addCurrency(input.currencyCode, input.currencyName, input.currencySymbol, input.exchangeRate)),
+    addCurrency: protectedProcedure.input(z.object({ currencyCode: z.string(), currencyName: z.string(), currencySymbol: z.string(), exchangeRate: z.string().optional() })).mutation(({ input }) => db.addCurrency(input.currencyCode, input.currencyName, input.currencySymbol, input.exchangeRate)),
     removeCurrency: protectedProcedure.input(z.object({ currencyCode: z.string() })).mutation(({ input }) => db.removeCurrency(input.currencyCode)),
     setDefaultCurrency: protectedProcedure.input(z.object({ currencyCode: z.string() })).mutation(({ input }) => db.setDefaultCurrency(input.currencyCode)),
     updateExchangeRate: protectedProcedure.input(z.object({ currencyCode: z.string(), exchangeRate: z.string() })).mutation(({ input }) => db.updateExchangeRate(input.currencyCode, input.exchangeRate)),
     validateAllSettings: protectedProcedure.query(() => db.validateAllSettings()),
     resetSettingsToDefaults: protectedProcedure.mutation(() => db.resetSettingsToDefaults()),
+
+    // ─── Custom Reports ─────────────────────────────────────────────────────
+    getCustomReports: protectedProcedure.query(({ ctx }) =>
+      db.getCustomReports(ctx.user.id)
+    ),
+    createCustomReport: protectedProcedure.input(z.object({
+      name: z.string(),
+      description: z.string().optional(),
+      type: z.string(),
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
+      metrics: z.array(z.string()).optional(),
+      filters: z.string().optional(),
+      groupBy: z.string().optional(),
+      isPublic: z.boolean().optional(),
+    })).mutation(({ input, ctx }) => db.createCustomReport({
+      name: input.name,
+      description: input.description,
+      type: input.type,
+      filters: input.filters || JSON.stringify({ dateFrom: input.dateFrom, dateTo: input.dateTo, metrics: input.metrics, groupBy: input.groupBy }),
+      isPublic: input.isPublic,
+      createdBy: ctx.user.id,
+    })),
+    deleteCustomReport: protectedProcedure.input(z.object({ id: z.number() }))
+      .mutation(({ input }) => db.deleteCustomReport(input.id)),
+    exportCustomReport: protectedProcedure.input(z.object({
+      id: z.number(),
+      format: z.enum(['csv', 'json', 'pdf']).optional(),
+    })).mutation(async ({ input, ctx }) => {
+      const reports = await db.getCustomReportById(input.id);
+      const report = reports[0];
+      if (!report) throw new Error('Report not found');
+      return { success: true, reportId: input.id, format: input.format || 'csv', name: report.name };
+    }),
+
+    // ─── KPI Metrics ────────────────────────────────────────────────────────
+    getKPIMetrics: protectedProcedure.input(z.object({
+      startDate: z.string(),
+      endDate: z.string(),
+    })).query(({ input }) => db.getKPIDashboardMetrics(input.startDate, input.endDate)),
+
+    // ─── Integration & Webhook endpoints (used by Integrations.tsx) ─────
+    getIntegrations: protectedProcedure.query(async () => {
+      const list = await db.getIntegrations();
+      const byType = (type: string) => list.find((i: any) => i.type === type && i.isEnabled);
+      return {
+        slack: byType('slack') ? { active: true, ...byType('slack') } : { active: false },
+        teams: byType('teams') ? { active: true, ...byType('teams') } : { active: false },
+        quickbooks: byType('quickbooks') ? {
+          active: true,
+          lastSyncedAt: (byType('quickbooks') as any)?.updatedAt ?? null,
+          ...byType('quickbooks'),
+        } : { active: false },
+      };
+    }),
+    getWebhooks: protectedProcedure.query(() => db.listWebhooks()),
+    createSlackIntegration: protectedProcedure
+      .input(z.object({ webhookUrl: z.string().url() }))
+      .mutation(({ input }) => db.createIntegration({ type: 'slack', name: 'Slack', webhookUrl: input.webhookUrl })),
+    createTeamsIntegration: protectedProcedure
+      .input(z.object({ webhookUrl: z.string().url() }))
+      .mutation(({ input }) => db.createIntegration({ type: 'teams', name: 'Microsoft Teams', webhookUrl: input.webhookUrl })),
+    createQuickBooksIntegration: protectedProcedure
+      .input(z.object({ authCode: z.string() }))
+      .mutation(({ input }) => db.createIntegration({ type: 'quickbooks', name: 'QuickBooks Online', apiKey: input.authCode })),
+    createWebhook: protectedProcedure
+      .input(z.object({ url: z.string().url(), event: z.string(), active: z.boolean().optional() }))
+      .mutation(({ input }) => db.createWebhookIntegration(input.url, input.event)),
+    deleteIntegration: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(({ input }) => db.deleteIntegration(input.id)),
+  }),
+
+  // Add missing mock routes
+  locations: router({
+    list: protectedProcedure.query(() => [] as any[]),
+    create: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    update: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    delete: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    settings: router({
+      update: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    }),
+  }),
+  locationPrices: router({
+    list: protectedProcedure.input(z.any()).query(() => [] as any[]),
+    update: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+  }),
+  paymentDisputes: router({
+    list: protectedProcedure.input(z.any().optional()).query(() => [] as any[]),
+    respond: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    metrics: protectedProcedure.query(() => ({}) as any),
+  }),
+  tableMerges: router({
+    getActive: protectedProcedure.query(() => [] as any[]),
+    request: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    approve: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    reject: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+  }),
+  discountsManager: router({
+    list: protectedProcedure.query(() => [] as any[]),
+    create: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    delete: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    applyToOrder: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    revoke: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+  }),
+  splitBills: router({
+    getActive: protectedProcedure.input(z.any().optional()).query(() => [] as any[]),
+    createGroup: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    updateGroup: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+    removeGroup: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
+  }),
+  tips: router({
+    dailySummary: protectedProcedure.input(z.any().optional()).query(() => [] as any[]),
+    calculatePool: protectedProcedure.input(z.any()).mutation(() => ({}) as any),
   }),
 });
 export type AppRouter = typeof appRouter;

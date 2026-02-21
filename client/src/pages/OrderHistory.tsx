@@ -89,15 +89,15 @@ export default function OrderHistory() {
           <div class="line"></div>
           <div style="text-align: left; margin: 10px 0;">
             ${order.items
-              ?.map(
-                (item: any) => `
+        ?.map(
+          (item: any) => `
               <div class="item-row">
                 <span>${item.itemName} x${item.quantity}</span>
                 <span>$${(item.totalPrice || 0).toFixed(2)}</span>
               </div>
             `
-              )
-              .join("")}
+        )
+        .join("")}
           </div>
           <div class="line"></div>
           <div class="row">
@@ -314,21 +314,21 @@ export default function OrderHistory() {
                                 <div className="border-t border-border pt-3 space-y-2">
                                   <div className="flex justify-between text-sm">
                                     <span>Subtotal:</span>
-                                    <span>${(orderDetails.subtotal || 0).toFixed(2)}</span>
+                                    <span>${Number(orderDetails.subtotal || 0).toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between text-sm">
                                     <span>Tax:</span>
-                                    <span>${(orderDetails.taxAmount || 0).toFixed(2)}</span>
+                                    <span>${Number(orderDetails.taxAmount || 0).toFixed(2)}</span>
                                   </div>
                                   {orderDetails.discountAmount && (
                                     <div className="flex justify-between text-sm text-red-600">
                                       <span>Discount:</span>
-                                      <span>-${(orderDetails.discountAmount || 0).toFixed(2)}</span>
+                                      <span>-${Number(orderDetails.discountAmount || 0).toFixed(2)}</span>
                                     </div>
                                   )}
                                   <div className="flex justify-between text-lg font-bold border-t border-border pt-2">
                                     <span>Total:</span>
-                                    <span>${(orderDetails.total || 0).toFixed(2)}</span>
+                                    <span>${Number(orderDetails.total || 0).toFixed(2)}</span>
                                   </div>
                                 </div>
 

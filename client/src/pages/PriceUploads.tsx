@@ -50,7 +50,7 @@ function UploadTab() {
     reader.onload = async () => {
       const base64 = (reader.result as string).split(",")[1];
       try {
-        const result = await uploadMut.mutateAsync({
+        const result: any = await uploadMut.mutateAsync({
           supplierId: Number(selectedSupplierId),
           fileName: file.name,
           fileBase64: base64,
@@ -263,7 +263,7 @@ function ReviewDialog({ uploadId, onClose }: { uploadId: number; onClose: () => 
 
   const handleApply = async () => {
     try {
-      const result = await applyMut.mutateAsync({ uploadId });
+      const result: any = await applyMut.mutateAsync({ uploadId });
       toast.success(`Applied prices: ${result.totalItems} items, ${result.newItems} new, ${result.priceChanges} changed`);
       utils.priceUploads.list.invalidate();
       utils.priceUploads.get.invalidate({ id: uploadId });

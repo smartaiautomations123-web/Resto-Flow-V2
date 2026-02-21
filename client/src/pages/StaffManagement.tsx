@@ -175,9 +175,9 @@ export default function StaffManagement() {
         </TabsContent>
 
         <TabsContent value="schedule" className="mt-4">
-        <TabsContent value="timesheet" className="mt-4">
-          <TimesheetExport staffList={staffData || []} />
-        </TabsContent>
+          <TabsContent value="timesheet" className="mt-4">
+            <TimesheetExport staffList={staffList || []} />
+          </TabsContent>
           <div className="flex justify-end mb-4">
             <Button size="sm" onClick={() => { setShiftForm({ staffId: staffList?.[0]?.id ? String(staffList[0].id) : "", date: weekDates[0], startTime: "09:00", endTime: "17:00" }); setShowShiftDialog(true); }}>
               <Plus className="h-4 w-4 mr-1" /> Add Shift
@@ -201,12 +201,12 @@ export default function StaffManagement() {
                     <tr key={s.id} className="border-b border-border/50">
                       <td className="p-3 font-medium text-sm">{s.name}</td>
                       {weekDates.map(d => {
-                        const dayShifts = shifts?.filter(sh => sh.staffId === s.id && sh.date === d) || [];
+                        const dayShifts = (shifts as any[])?.filter(sh => sh.staffId === s.id && (sh.date || sh.shiftDate) === d) || [];
                         return (
                           <td key={d} className="p-2 text-center">
                             {dayShifts.map(sh => (
-                              <div key={sh.id} className="text-xs bg-primary/10 text-primary rounded px-1 py-0.5 mb-1 cursor-pointer hover:bg-primary/20" onClick={async () => { await deleteShift.mutateAsync({ id: sh.id }); toast.success("Shift removed"); }}>
-                                {sh.startTime}-{sh.endTime}
+                              <div key={sh.id || Math.random()} className="text-xs bg-primary/10 text-primary rounded px-1 py-0.5 mb-1 cursor-pointer hover:bg-primary/20" onClick={async () => { if (sh.id) { await deleteShift.mutateAsync({ id: sh.id }); toast.success("Shift removed"); } }}>
+                                {sh.startTime || (sh.clockIn ? new Date(sh.clockIn).toLocaleTimeString() : '')}-{sh.endTime || (sh.clockOut ? new Date(sh.clockOut).toLocaleTimeString() : '')}
                               </div>
                             ))}
                           </td>

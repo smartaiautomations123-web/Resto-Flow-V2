@@ -7,8 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { useState } from "react";
-import { Plus, Pencil, Trash2, Package, AlertTriangle } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Pencil, Trash2, AlertTriangle, ArrowUpDown, TrendingUp, Package, DollarSign, Search } from "lucide-react";
 
 export default function Inventory() {
   const utils = trpc.useUtils();
@@ -18,10 +18,16 @@ export default function Inventory() {
   const createIngredient = trpc.ingredients.create.useMutation({ onSuccess: () => { utils.ingredients.list.invalidate(); utils.ingredients.lowStock.invalidate(); } });
   const updateIngredient = trpc.ingredients.update.useMutation({ onSuccess: () => { utils.ingredients.list.invalidate(); utils.ingredients.lowStock.invalidate(); } });
   const deleteIngredient = trpc.ingredients.delete.useMutation({ onSuccess: () => { utils.ingredients.list.invalidate(); utils.ingredients.lowStock.invalidate(); } });
+  const adjustStock = trpc.ingredients.adjustStock.useMutation({ onSuccess: () => { utils.ingredients.list.invalidate(); utils.ingredients.lowStock.invalidate(); toast.success("Stock adjusted"); } });
 
   const [showDialog, setShowDialog] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState({ name: "", unit: "kg", currentStock: "", minStock: "", costPerUnit: "", supplierId: "" });
+  const [search, setSearch] = useState("");
+  const [showAdjustDialog, setShowAdjustDialog] = useState(false);
+  const [adjustItem, setAdjustItem] = useState<any>(null);
+  const [adjustDelta, setAdjustDelta] = useState("");
+  const [adjustReason, setAdjustReason] = useState("manual adjustment");
 
   const openDialog = (item?: any) => {
     setEditItem(item || null);
@@ -33,13 +39,20 @@ export default function Inventory() {
     setShowDialog(true);
   };
 
+  const openAdjustDialog = (item: any) => {
+    setAdjustItem(item);
+    setAdjustDelta("");
+    setAdjustReason("manual adjustment");
+    setShowAdjustDialog(true);
+  };
+
   const save = async () => {
     if (!form.name.trim() || !form.unit) return;
     const data = {
       name: form.name, unit: form.unit,
       currentStock: form.currentStock || undefined, minStock: form.minStock || undefined,
       costPerUnit: form.costPerUnit || undefined,
-      supplierId: form.supplierId ? Number(form.supplierId) : undefined,
+      supplierId: form.supplierId && form.supplierId !== "none" ? Number(form.supplierId) : undefined,
     };
     if (editItem) {
       await updateIngredient.mutateAsync({ id: editItem.id, ...data });
@@ -51,7 +64,24 @@ export default function Inventory() {
     setShowDialog(false);
   };
 
+  const doAdjust = async () => {
+    if (!adjustItem || !adjustDelta) return;
+    const delta = Number(adjustDelta);
+    if (isNaN(delta) || delta === 0) { toast.error("Enter a non-zero quantity"); return; }
+    await adjustStock.mutateAsync({ id: adjustItem.id, delta, reason: adjustReason });
+    setShowAdjustDialog(false);
+  };
+
   const lowStockIds = new Set(lowStock?.map(i => i.id) || []);
+
+  const filtered = useMemo(() => {
+    if (!ingredients) return [];
+    const q = search.toLowerCase();
+    return ingredients.filter(i => !q || i.name.toLowerCase().includes(q));
+  }, [ingredients, search]);
+
+  const totalValue = useMemo(() =>
+    (ingredients || []).reduce((sum, i) => sum + Number(i.currentStock) * Number(i.costPerUnit), 0), [ingredients]);
 
   return (
     <div className="space-y-6">
@@ -63,6 +93,46 @@ export default function Inventory() {
         <Button onClick={() => openDialog()}>
           <Plus className="h-4 w-4 mr-2" /> Add Ingredient
         </Button>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 flex items-center gap-3">
+            <Package className="h-8 w-8 text-primary/70 shrink-0" />
+            <div>
+              <p className="text-xs text-muted-foreground">Total Items</p>
+              <p className="text-2xl font-bold">{ingredients?.length || 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={`border-border ${(lowStock?.length || 0) > 0 ? "bg-destructive/5" : "bg-card"}`}>
+          <CardContent className="p-4 flex items-center gap-3">
+            <AlertTriangle className={`h-8 w-8 shrink-0 ${(lowStock?.length || 0) > 0 ? "text-destructive" : "text-muted-foreground"}`} />
+            <div>
+              <p className="text-xs text-muted-foreground">Low Stock</p>
+              <p className="text-2xl font-bold">{lowStock?.length || 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 flex items-center gap-3">
+            <TrendingUp className="h-8 w-8 text-primary/70 shrink-0" />
+            <div>
+              <p className="text-xs text-muted-foreground">Suppliers Linked</p>
+              <p className="text-2xl font-bold">{new Set((ingredients || []).map(i => i.supplierId).filter(Boolean)).size}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 flex items-center gap-3">
+            <DollarSign className="h-8 w-8 text-primary/70 shrink-0" />
+            <div>
+              <p className="text-xs text-muted-foreground">Total Value</p>
+              <p className="text-2xl font-bold">${totalValue.toFixed(2)}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Low stock alert banner */}
@@ -82,6 +152,17 @@ export default function Inventory() {
         </Card>
       )}
 
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search ingredients..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       {/* Ingredients table */}
       <Card className="bg-card border-border">
         <CardContent className="p-0">
@@ -94,15 +175,17 @@ export default function Inventory() {
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground">Current Stock</th>
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground">Min Stock</th>
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground">Cost/Unit</th>
+                  <th className="text-left p-4 text-sm font-medium text-muted-foreground">Stock Value</th>
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground">Supplier</th>
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground">Status</th>
                   <th className="text-right p-4 text-sm font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {ingredients?.map(item => {
+                {filtered.map(item => {
                   const supplier = suppliers?.find(s => s.id === item.supplierId);
                   const isLow = lowStockIds.has(item.id);
+                  const stockValue = Number(item.currentStock) * Number(item.costPerUnit);
                   return (
                     <tr key={item.id} className={`border-b border-border/50 hover:bg-accent/30 transition-colors ${isLow ? "bg-destructive/5" : ""}`}>
                       <td className="p-4 font-medium text-sm">{item.name}</td>
@@ -110,7 +193,8 @@ export default function Inventory() {
                       <td className="p-4 text-sm font-medium">{Number(item.currentStock).toFixed(2)}</td>
                       <td className="p-4 text-sm text-muted-foreground">{Number(item.minStock).toFixed(2)}</td>
                       <td className="p-4 text-sm">${Number(item.costPerUnit).toFixed(4)}</td>
-                      <td className="p-4 text-sm text-muted-foreground">{supplier?.name || "-"}</td>
+                      <td className="p-4 text-sm text-muted-foreground">${stockValue.toFixed(2)}</td>
+                      <td className="p-4 text-sm text-muted-foreground">{supplier?.name || "–"}</td>
                       <td className="p-4">
                         <Badge className={isLow ? "badge-danger" : "badge-success"}>
                           {isLow ? "Low" : "OK"}
@@ -118,13 +202,13 @@ export default function Inventory() {
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Adjust stock" onClick={() => openAdjustDialog(item)}>
+                            <ArrowUpDown className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog(item)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={async () => {
-                            await deleteIngredient.mutateAsync({ id: item.id });
-                            toast.success("Deleted");
-                          }}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={async () => { await deleteIngredient.mutateAsync({ id: item.id }); toast.success("Deleted"); }}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -134,12 +218,12 @@ export default function Inventory() {
                 })}
               </tbody>
             </table>
-            {(!ingredients || ingredients.length === 0) && <p className="text-muted-foreground text-sm text-center py-8">No ingredients yet. Click "Add Ingredient" to start.</p>}
+            {filtered.length === 0 && <p className="text-muted-foreground text-sm text-center py-8">No ingredients found.</p>}
           </div>
         </CardContent>
       </Card>
 
-      {/* Dialog */}
+      {/* Add/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editItem ? "Edit" : "Add"} Ingredient</DialogTitle></DialogHeader>
@@ -173,6 +257,46 @@ export default function Inventory() {
             </div>
           </div>
           <DialogFooter><Button onClick={save}>Save</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Adjust Stock Dialog */}
+      <Dialog open={showAdjustDialog} onOpenChange={setShowAdjustDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Adjust Stock — {adjustItem?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Current: <span className="font-semibold text-foreground">{Number(adjustItem?.currentStock || 0).toFixed(2)} {adjustItem?.unit}</span>
+            </p>
+            <div>
+              <Label>Adjustment (positive = add, negative = remove)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="e.g. 5 or -2"
+                value={adjustDelta}
+                onChange={e => setAdjustDelta(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Reason</Label>
+              <Select value={adjustReason} onValueChange={setAdjustReason}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual adjustment">Manual adjustment</SelectItem>
+                  <SelectItem value="stock count">Stock count correction</SelectItem>
+                  <SelectItem value="delivery received">Delivery received</SelectItem>
+                  <SelectItem value="spillage">Spillage / Waste</SelectItem>
+                  <SelectItem value="theft">Theft / Loss</SelectItem>
+                  <SelectItem value="return to supplier">Return to supplier</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAdjustDialog(false)}>Cancel</Button>
+            <Button onClick={doAdjust}>Apply Adjustment</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

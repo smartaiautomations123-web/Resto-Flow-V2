@@ -24,7 +24,7 @@ function createAuthContext(): { ctx: TrpcContext } {
       headers: {},
     } as TrpcContext["req"],
     res: {
-      clearCookie: () => {},
+      clearCookie: () => { },
     } as TrpcContext["res"],
   };
 
@@ -97,19 +97,19 @@ vi.mock("./db", () => {
     }),
     deleteShift: vi.fn((id: number) => { shiftStore = shiftStore.filter(s => s.id !== id); }),
 
-    // Categories
-    listCategories: vi.fn(() => categoryStore),
-    createCategory: vi.fn((data: any) => {
+    // Categories (using the names the router calls)
+    listMenuCategories: vi.fn(() => categoryStore),
+    createMenuCategory: vi.fn((data: any) => {
       const c = { id: catIdCounter++, ...data, isActive: true, sortOrder: 0, createdAt: new Date(), updatedAt: new Date() };
       categoryStore.push(c);
       return c;
     }),
-    updateCategory: vi.fn((id: number, data: any) => {
+    updateMenuCategory: vi.fn((id: number, data: any) => {
       const idx = categoryStore.findIndex(c => c.id === id);
       if (idx >= 0) categoryStore[idx] = { ...categoryStore[idx], ...data };
       return categoryStore[idx];
     }),
-    deleteCategory: vi.fn((id: number) => { categoryStore = categoryStore.filter(c => c.id !== id); }),
+    deleteMenuCategory: vi.fn((id: number) => { categoryStore = categoryStore.filter(c => c.id !== id); }),
 
     // Menu
     listMenuItems: vi.fn(() => menuStore),
@@ -169,26 +169,21 @@ vi.mock("./db", () => {
       return orderStore[idx];
     }),
 
-    // Order Items
-    listOrderItems: vi.fn((orderId: number) => orderItemStore.filter(i => i.orderId === orderId)),
-    createOrderItem: vi.fn((data: any) => {
+    // Order Items (using names the router calls)
+    addOrderItem: vi.fn((data: any) => {
       const item = { id: orderItemIdCounter++, ...data, status: "pending", createdAt: new Date() };
       orderItemStore.push(item);
       return item;
     }),
+    getOrderItems: vi.fn((orderId: number) => orderItemStore.filter(i => i.orderId === orderId)),
     updateOrderItem: vi.fn((id: number, data: any) => {
       const idx = orderItemStore.findIndex(i => i.id === id);
-      if (idx >= 0) orderItemStore[idx] = { ...orderItemStore[idx], ...data };
+      if (idx >= 0) orderItemStore[idx] = { ...orderItemStore[idx], ...data, sentToKitchenAt: data.status === "preparing" ? new Date() : orderItemStore[idx].sentToKitchenAt };
       return orderItemStore[idx];
     }),
 
-    // KDS
-    getKDSItems: vi.fn(() => orderItemStore.filter(i => ["pending", "preparing"].includes(i.status))),
-    updateKdsItemStatus: vi.fn((id: number, status: string) => {
-      const idx = orderItemStore.findIndex(i => i.id === id);
-      if (idx >= 0) orderItemStore[idx] = { ...orderItemStore[idx], status, sentToKitchenAt: status === "preparing" ? new Date() : orderItemStore[idx].sentToKitchenAt };
-      return orderItemStore[idx];
-    }),
+    // KDS - router calls getOrdersByStatus for kds.items
+    getOrdersByStatus: vi.fn((status: string) => orderItemStore.filter(i => ["pending", "preparing"].includes(i.status))),
 
     // Suppliers
     listSuppliers: vi.fn(() => supplierStore),
@@ -249,13 +244,12 @@ vi.mock("./db", () => {
       return reservationStore[idx];
     }),
 
-    // Reports
-    getSalesStats: vi.fn(() => ({ totalRevenue: "1500.00", totalOrders: 25, avgTicket: "60.00" })),
-    getDailySales: vi.fn(() => [{ date: "2026-02-15", revenue: "500.00", orders: 10 }]),
-    getTopSellingItems: vi.fn(() => [{ name: "Burger", totalQty: 50, totalRevenue: "500.00" }]),
-    getSalesByCategory: vi.fn(() => [{ categoryName: "Mains", totalSales: "1000.00" }]),
-    getOrdersByType: vi.fn(() => [{ type: "dine_in", count: 15, revenue: "900.00" }]),
-    getLabourCosts: vi.fn(() => [{ staffName: "John", totalHours: "40", hourlyRate: "15.00" }]),
+    // Reports - names matching what the router calls
+    getProfitabilitySummary: vi.fn(() => ({ totalRevenue: "1500.00", totalOrders: 25, avgTicket: "60.00" })),
+    getDailyProfitTrend: vi.fn(() => [{ date: "2026-02-15", revenue: "500.00", orders: 10 }]),
+    getTopProfitableItems: vi.fn(() => [{ name: "Burger", totalQty: 50, totalRevenue: "500.00" }]),
+    getProfitabilityByCategory: vi.fn(() => [{ categoryName: "Mains", totalSales: "1000.00" }]),
+    calculateTimesheetSummary: vi.fn(() => [{ staffName: "John", totalHours: "40", hourlyRate: "15.00" }]),
   };
 });
 

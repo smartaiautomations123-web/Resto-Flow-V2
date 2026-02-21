@@ -14,7 +14,7 @@ export default function AnalyticsDashboard() {
     endDate: getDateFromRange(dateRange).end,
   });
 
-  const { data: profitability } = trpc.profitability.dashboard.useQuery({
+  const { data: profitability } = trpc.profitabilityMetrics.dashboard.useQuery({
     startDate: getDateFromRange(dateRange).start,
     endDate: getDateFromRange(dateRange).end,
   });
@@ -217,15 +217,15 @@ export default function AnalyticsDashboard() {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">Total Sales</p>
-                    <p className="text-2xl font-bold">${salesAnalytics?.totalSales || '0'}</p>
+                    <p className="text-2xl font-bold">${salesAnalytics?.totalRevenue || '0'}</p>
                   </div>
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">Transactions</p>
-                    <p className="text-2xl font-bold">{salesAnalytics?.transactions || 0}</p>
+                    <p className="text-2xl font-bold">{salesAnalytics?.totalOrders || 0}</p>
                   </div>
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">Avg Transaction</p>
-                    <p className="text-2xl font-bold">${salesAnalytics?.avgTransaction || '0'}</p>
+                    <p className="text-2xl font-bold">${salesAnalytics?.avgOrderValue || '0'}</p>
                   </div>
                 </div>
               </div>
@@ -255,7 +255,7 @@ export default function AnalyticsDashboard() {
                   </div>
                   <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                     <p className="text-sm text-gray-600">Prime Cost</p>
-                    <p className="text-2xl font-bold text-purple-600">{profitability?.primeCost || 0}%</p>
+                    <p className="text-2xl font-bold text-purple-600">{(profitability as any)?.primeCost || 0}%</p>
                     <p className="text-xs text-gray-500 mt-1">COGS + Labour</p>
                   </div>
                 </div>

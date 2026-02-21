@@ -57,10 +57,10 @@ export default function OnlineOrdering() {
   const placeOrder = async () => {
     if (!customerName.trim()) { toast.error("Please enter your name"); return; }
     try {
-      const order = await createOrder.mutateAsync({
+      const order: any = await createOrder.mutateAsync({
         type: orderType,
         customerName,
-        
+
       });
       for (const item of cart) {
         await addItem.mutateAsync({
@@ -130,42 +130,46 @@ export default function OnlineOrdering() {
         </div>
 
         {/* Menu grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredItems.map(item => {
-            const inCart = cart.find(c => c.menuItemId === item.id);
-            return (
-              <Card key={item.id} className="bg-card border-border overflow-hidden group hover:border-primary/30 transition-all">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="font-semibold">{item.name}</h3>
-                      {item.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.description}</p>}
-                    </div>
-                    {item.isPopular && <Badge className="badge-warning ml-2 shrink-0">Popular</Badge>}
-                  </div>
-                  <div className="flex items-center justify-between mt-3">
-                    <span className="text-lg font-bold text-primary">${Number(item.price).toFixed(2)}</span>
-                    {inCart ? (
-                      <div className="flex items-center gap-2">
-                        <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQty(cart.indexOf(inCart), -1)}>
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <span className="font-medium w-6 text-center">{inCart.quantity}</span>
-                        <Button size="icon" className="h-8 w-8" onClick={() => updateQty(cart.indexOf(inCart), 1)}>
-                          <Plus className="h-3 w-3" />
-                        </Button>
+        {filteredItems.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">No menu items available in this category.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredItems.map(item => {
+              const inCart = cart.find(c => c.menuItemId === item.id);
+              return (
+                <Card key={item.id} className="bg-card border-border overflow-hidden group hover:border-primary/30 transition-all">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-semibold">{item.name}</h3>
+                        {item.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.description}</p>}
                       </div>
-                    ) : (
-                      <Button size="sm" onClick={() => addToCart(item)}>
-                        <Plus className="h-4 w-4 mr-1" /> Add
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                      {item.isPopular && <Badge className="badge-warning ml-2 shrink-0">Popular</Badge>}
+                    </div>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-lg font-bold text-primary">${Number(item.price).toFixed(2)}</span>
+                      {inCart ? (
+                        <div className="flex items-center gap-2">
+                          <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQty(cart.indexOf(inCart), -1)}>
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="font-medium w-6 text-center">{inCart.quantity}</span>
+                          <Button size="icon" className="h-8 w-8" onClick={() => updateQty(cart.indexOf(inCart), 1)}>
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" onClick={() => addToCart(item)}>
+                          <Plus className="h-4 w-4 mr-1" /> Add
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Checkout Dialog */}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,140 +6,191 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { trpc } from '@/lib/trpc';
+import { toast } from 'sonner';
+import { Save, Key, Trash2, Plus, RefreshCw, Shield, Mail, CreditCard, Truck, Receipt, Settings2, Database, Activity } from 'lucide-react';
+
+// ─── Helper: controlled settings form state ───────────────────────────────────
+function useSettingsForm<T extends Record<string, any>>(initial: T | null | undefined) {
+  const [form, setForm] = useState<T>(initial as T ?? {} as T);
+  useEffect(() => { if (initial) setForm(initial); }, [JSON.stringify(initial)]);
+  const set = (key: keyof T, value: any) => setForm(prev => ({ ...prev, [key]: value }));
+  return { form, set };
+}
+
+// Helper to remove null values so Zod optional fields are happy (undefined)
+function cleanPayload(data: any) {
+  const cleaned: any = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== null) cleaned[key] = value;
+  }
+  return cleaned;
+}
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('system');
+  const [newApiKeyName, setNewApiKeyName] = useState('');
 
-  // System Settings
-  const { data: systemSettings, isLoading: loadingSystem } = trpc.settings.system.get.useQuery();
-  const updateSystemSettings = trpc.settings.system.update.useMutation({
-    onSuccess: () => toast({ title: 'System settings updated' }),
+  const me = trpc.auth.me.useQuery();
+  const userId = (me.data as any)?.id ?? 1;
+
+  // ─── Queries ────────────────────────────────────────────────────────────────
+  const { data: systemData, isLoading: loadingSystem } = trpc.settings.getSystemSettings.useQuery();
+  const { data: prefData, isLoading: loadingPrefs } = trpc.settings.getUserPreferences.useQuery({ userId });
+  const { data: emailData, isLoading: loadingEmail } = trpc.settings.getEmailSettings.useQuery();
+  const { data: paymentData, isLoading: loadingPayment } = trpc.settings.getPaymentSettings.useQuery();
+  const { data: deliveryData, isLoading: loadingDelivery } = trpc.settings.getDeliverySettings.useQuery();
+  const { data: receiptData, isLoading: loadingReceipt } = trpc.settings.getReceiptSettings.useQuery();
+  const { data: securityData, isLoading: loadingSecurity } = trpc.settings.getSecuritySettings.useQuery();
+  const { data: apiKeysData, isLoading: loadingApiKeys } = trpc.settings.listApiKeys.useQuery({ userId });
+  const { data: auditData, isLoading: loadingAudit } = trpc.settings.getAuditLogSettings.useQuery();
+  const { data: backupData, isLoading: loadingBackup } = trpc.settings.getBackupSettings.useQuery();
+
+  // ─── Form state ─────────────────────────────────────────────────────────────
+  const system = useSettingsForm(systemData);
+  const prefs = useSettingsForm(prefData);
+  const email = useSettingsForm(emailData);
+  const payment = useSettingsForm(paymentData);
+  const delivery = useSettingsForm(deliveryData);
+  const receipt = useSettingsForm(receiptData);
+  const security = useSettingsForm(securityData);
+  const audit = useSettingsForm(auditData);
+  const backup = useSettingsForm(backupData);
+
+  // ─── Mutations ───────────────────────────────────────────────────────────────
+  const utils = trpc.useUtils();
+
+  const saveSystem = trpc.settings.updateSystemSettings.useMutation({
+    onSuccess: () => { toast.success('System settings saved'); utils.settings.getSystemSettings.invalidate(); },
+    onError: () => toast.error('Failed to save system settings'),
+  });
+  const savePrefs = trpc.settings.updateUserPreferences.useMutation({
+    onSuccess: () => { toast.success('Preferences saved'); utils.settings.getUserPreferences.invalidate({ userId }); },
+    onError: () => toast.error('Failed to save preferences'),
+  });
+  const saveEmail = trpc.settings.updateEmailSettings.useMutation({
+    onSuccess: () => { toast.success('Email settings saved'); utils.settings.getEmailSettings.invalidate(); },
+    onError: () => toast.error('Failed to save email settings'),
+  });
+  const testEmail = trpc.settings.testEmailSettings.useMutation({
+    onSuccess: (r) => toast.success(r.message),
+    onError: () => toast.error('Email test failed'),
+  });
+  const savePayment = trpc.settings.updatePaymentSettings.useMutation({
+    onSuccess: () => { toast.success('Payment settings saved'); utils.settings.getPaymentSettings.invalidate(); },
+    onError: () => toast.error('Failed to save payment settings'),
+  });
+  const saveDelivery = trpc.settings.updateDeliverySettings.useMutation({
+    onSuccess: () => { toast.success('Delivery settings saved'); utils.settings.getDeliverySettings.invalidate(); },
+    onError: () => toast.error('Failed to save delivery settings'),
+  });
+  const saveReceipt = trpc.settings.updateReceiptSettings.useMutation({
+    onSuccess: () => { toast.success('Receipt settings saved'); utils.settings.getReceiptSettings.invalidate(); },
+    onError: () => toast.error('Failed to save receipt settings'),
+  });
+  const saveSecurity = trpc.settings.updateSecuritySettings.useMutation({
+    onSuccess: () => { toast.success('Security settings saved'); utils.settings.getSecuritySettings.invalidate(); },
+    onError: () => toast.error('Failed to save security settings'),
+  });
+  const createApiKey = trpc.settings.createApiKey.useMutation({
+    onSuccess: () => { toast.success('API key created'); utils.settings.listApiKeys.invalidate({ userId }); setNewApiKeyName(''); },
+    onError: () => toast.error('Failed to create API key'),
+  });
+  const revokeApiKey = trpc.settings.revokeApiKey.useMutation({
+    onSuccess: () => { toast.success('API key revoked'); utils.settings.listApiKeys.invalidate({ userId }); },
+    onError: () => toast.error('Failed to revoke API key'),
+  });
+  const saveAudit = trpc.settings.updateAuditLogSettings.useMutation({
+    onSuccess: () => { toast.success('Audit settings saved'); utils.settings.getAuditLogSettings.invalidate(); },
+    onError: () => toast.error('Failed to save audit settings'),
+  });
+  const saveBackup = trpc.settings.updateBackupSettings.useMutation({
+    onSuccess: () => { toast.success('Backup settings saved'); utils.settings.getBackupSettings.invalidate(); },
+    onError: () => toast.error('Failed to save backup settings'),
+  });
+  const triggerBackup = trpc.settings.triggerManualBackup.useMutation({
+    onSuccess: () => toast.success('Backup triggered successfully'),
+    onError: () => toast.error('Failed to trigger backup'),
   });
 
-  // User Preferences
-  const { data: userPreferences, isLoading: loadingPreferences } = trpc.settings.userPreferences.get.useQuery();
-  const updateUserPreferences = trpc.settings.userPreferences.update.useMutation({
-    onSuccess: () => toast({ title: 'Preferences updated' }),
-  });
+  const handleCreateApiKey = () => {
+    if (!newApiKeyName.trim()) { toast.error('Enter a name for the API key'); return; }
+    const keyHash = `rflow_${Array.from(crypto.getRandomValues(new Uint8Array(24))).map(b => b.toString(16).padStart(2, '0')).join('')}`;
+    createApiKey.mutate({ userId, name: newApiKeyName.trim(), keyHash });
+  };
 
-  // Email Settings
-  const { data: emailSettings, isLoading: loadingEmail } = trpc.settings.email.get.useQuery();
-  const updateEmailSettings = trpc.settings.email.update.useMutation({
-    onSuccess: () => toast({ title: 'Email settings updated' }),
-  });
-
-  // Payment Settings
-  const { data: paymentSettings, isLoading: loadingPayment } = trpc.settings.payment.get.useQuery();
-  const updatePaymentSettings = trpc.settings.payment.update.useMutation({
-    onSuccess: () => toast({ title: 'Payment settings updated' }),
-  });
-
-  // Delivery Settings
-  const { data: deliverySettings, isLoading: loadingDelivery } = trpc.settings.delivery.get.useQuery();
-  const updateDeliverySettings = trpc.settings.delivery.update.useMutation({
-    onSuccess: () => toast({ title: 'Delivery settings updated' }),
-  });
-
-  // Receipt Settings
-  const { data: receiptSettings, isLoading: loadingReceipt } = trpc.settings.receipt.get.useQuery();
-  const updateReceiptSettings = trpc.settings.receipt.update.useMutation({
-    onSuccess: () => toast({ title: 'Receipt settings updated' }),
-  });
-
-  // Security Settings
-  const { data: securitySettings, isLoading: loadingSecurity } = trpc.settings.security.get.useQuery();
-  const updateSecuritySettings = trpc.settings.security.update.useMutation({
-    onSuccess: () => toast({ title: 'Security settings updated' }),
-  });
-
-  // API Keys
-  const { data: apiKeys, isLoading: loadingApiKeys } = trpc.settings.apiKeys.list.useQuery();
-  const createApiKey = trpc.settings.apiKeys.create.useMutation({
-    onSuccess: () => toast({ title: 'API key created' }),
-  });
-  const deleteApiKey = trpc.settings.apiKeys.delete.useMutation({
-    onSuccess: () => toast({ title: 'API key deleted' }),
-  });
-
-  // Audit Log Settings
-  const { data: auditSettings, isLoading: loadingAudit } = trpc.settings.auditLog.get.useQuery();
-  const updateAuditSettings = trpc.settings.auditLog.update.useMutation({
-    onSuccess: () => toast({ title: 'Audit settings updated' }),
-  });
-
-  // Backup Settings
-  const { data: backupSettings, isLoading: loadingBackup } = trpc.settings.backup.get.useQuery();
-  const updateBackupSettings = trpc.settings.backup.update.useMutation({
-    onSuccess: () => toast({ title: 'Backup settings updated' }),
-  });
-  const triggerBackup = trpc.settings.backup.trigger.useMutation({
-    onSuccess: () => toast({ title: 'Backup started' }),
-  });
+  const tabs = [
+    { value: 'system', label: 'System', icon: Settings2 },
+    { value: 'preferences', label: 'Preferences', icon: Settings2 },
+    { value: 'email', label: 'Email', icon: Mail },
+    { value: 'payment', label: 'Payment', icon: CreditCard },
+    { value: 'delivery', label: 'Delivery', icon: Truck },
+    { value: 'receipt', label: 'Receipt', icon: Receipt },
+    { value: 'security', label: 'Security', icon: Shield },
+    { value: 'api', label: 'API Keys', icon: Key },
+    { value: 'audit', label: 'Audit', icon: Activity },
+    { value: 'backup', label: 'Backup', icon: Database },
+  ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Settings & Configuration</h1>
+        <h1 className="text-3xl font-bold">Settings &amp; Configuration</h1>
         <p className="text-muted-foreground mt-2">Manage your restaurant's system configuration and preferences</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10">
-          <TabsTrigger value="system">System</TabsTrigger>
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
-          <TabsTrigger value="email">Email</TabsTrigger>
-          <TabsTrigger value="payment">Payment</TabsTrigger>
-          <TabsTrigger value="delivery">Delivery</TabsTrigger>
-          <TabsTrigger value="receipt">Receipt</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="api">API Keys</TabsTrigger>
-          <TabsTrigger value="audit">Audit</TabsTrigger>
-          <TabsTrigger value="backup">Backup</TabsTrigger>
+        <TabsList className="flex flex-wrap gap-1 h-auto mb-2">
+          {tabs.map(t => (
+            <TabsTrigger key={t.value} value={t.value} className="text-xs">
+              {t.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        {/* System Settings */}
+        {/* ── System Settings ─────────────────────────────────────────── */}
         <TabsContent value="system" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>System Configuration</CardTitle>
-              <CardDescription>Configure basic system settings for your restaurant</CardDescription>
+              <CardDescription>Basic settings for your restaurant</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {loadingSystem ? (
-                <div className="text-muted-foreground">Loading...</div>
-              ) : (
+              {loadingSystem ? <div className="text-muted-foreground text-sm">Loading…</div> : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="restaurantName">Restaurant Name</Label>
-                      <Input
-                        id="restaurantName"
-                        defaultValue={systemSettings?.restaurantName || ''}
-                        placeholder="Enter restaurant name"
-                      />
+                      <Label>Restaurant Name</Label>
+                      <Input value={system.form.restaurantName ?? ''} onChange={e => system.set('restaurantName', e.target.value)} placeholder="My Restaurant" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="timezone">Timezone</Label>
-                      <Select defaultValue={systemSettings?.timezone || 'UTC'}>
-                        <SelectTrigger id="timezone">
-                          <SelectValue />
-                        </SelectTrigger>
+                      <Label>Business Email</Label>
+                      <Input type="email" value={system.form.businessEmail ?? ''} onChange={e => system.set('businessEmail', e.target.value)} placeholder="info@restaurant.com" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Business Phone</Label>
+                      <Input value={system.form.businessPhone ?? ''} onChange={e => system.set('businessPhone', e.target.value)} placeholder="+1 555-000-0000" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Timezone</Label>
+                      <Select value={system.form.timezone ?? 'UTC'} onValueChange={v => system.set('timezone', v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="UTC">UTC</SelectItem>
-                          <SelectItem value="EST">Eastern</SelectItem>
-                          <SelectItem value="CST">Central</SelectItem>
-                          <SelectItem value="MST">Mountain</SelectItem>
-                          <SelectItem value="PST">Pacific</SelectItem>
+                          <SelectItem value="America/New_York">Eastern (ET)</SelectItem>
+                          <SelectItem value="America/Chicago">Central (CT)</SelectItem>
+                          <SelectItem value="America/Denver">Mountain (MT)</SelectItem>
+                          <SelectItem value="America/Los_Angeles">Pacific (PT)</SelectItem>
+                          <SelectItem value="Europe/London">London (GMT)</SelectItem>
+                          <SelectItem value="Europe/Paris">Paris (CET)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="currency">Currency</Label>
-                      <Select defaultValue={systemSettings?.currency || 'USD'}>
-                        <SelectTrigger id="currency">
-                          <SelectValue />
-                        </SelectTrigger>
+                      <Label>Currency</Label>
+                      <Select value={system.form.currency ?? 'USD'} onValueChange={v => system.set('currency', v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="USD">USD ($)</SelectItem>
                           <SelectItem value="EUR">EUR (€)</SelectItem>
@@ -150,11 +201,9 @@ export default function Settings() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="language">Language</Label>
-                      <Select defaultValue={systemSettings?.language || 'en'}>
-                        <SelectTrigger id="language">
-                          <SelectValue />
-                        </SelectTrigger>
+                      <Label>Language</Label>
+                      <Select value={system.form.language ?? 'en'} onValueChange={v => system.set('language', v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="en">English</SelectItem>
                           <SelectItem value="es">Spanish</SelectItem>
@@ -164,365 +213,403 @@ export default function Settings() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="space-y-2">
+                      <Label>Tax Rate (%)</Label>
+                      <Input type="number" step="0.01" value={system.form.taxRate ?? ''} onChange={e => system.set('taxRate', e.target.value)} placeholder="8.5" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Business Address</Label>
+                      <Input value={system.form.businessAddress ?? ''} onChange={e => system.set('businessAddress', e.target.value)} placeholder="123 Main St, City, State" />
+                    </div>
                   </div>
-                  <Button onClick={() => updateSystemSettings.mutate({})}>Save System Settings</Button>
+                  <Button onClick={() => saveSystem.mutate(cleanPayload(system.form))} disabled={saveSystem.isPending}>
+                    <Save className="w-4 h-4 mr-2" />{saveSystem.isPending ? 'Saving…' : 'Save System Settings'}
+                  </Button>
                 </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* User Preferences */}
+        {/* ── User Preferences ─────────────────────────────────────────── */}
         <TabsContent value="preferences" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>User Preferences</CardTitle>
-              <CardDescription>Customize your user experience</CardDescription>
+              <CardDescription>Customize your personal experience</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {loadingPreferences ? (
-                <div className="text-muted-foreground">Loading...</div>
-              ) : (
+              {loadingPrefs ? <div className="text-muted-foreground text-sm">Loading…</div> : (
                 <>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="darkMode">Dark Mode</Label>
-                      <Switch id="darkMode" defaultChecked={userPreferences?.darkMode} />
+                      <div><Label>Theme</Label><p className="text-xs text-muted-foreground">Display theme preference</p></div>
+                      <Select value={prefs.form.theme ?? 'auto'} onValueChange={v => prefs.set('theme', v)}>
+                        <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="light">Light</SelectItem>
+                          <SelectItem value="dark">Dark</SelectItem>
+                          <SelectItem value="auto">Auto</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="notifications">Enable Notifications</Label>
-                      <Switch id="notifications" defaultChecked={userPreferences?.enableNotifications} />
+                      <div><Label>Sidebar Collapsed</Label><p className="text-xs text-muted-foreground">Start with sidebar collapsed</p></div>
+                      <Switch checked={!!prefs.form.sidebarCollapsed} onCheckedChange={v => prefs.set('sidebarCollapsed', v)} />
                     </div>
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="sidebarCollapsed">Collapse Sidebar by Default</Label>
-                      <Switch id="sidebarCollapsed" defaultChecked={userPreferences?.sidebarCollapsed} />
+                      <div><Label>Compact Mode</Label><p className="text-xs text-muted-foreground">Denser UI layout</p></div>
+                      <Switch checked={!!prefs.form.compactMode} onCheckedChange={v => prefs.set('compactMode', v)} />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="itemsPerPage">Items Per Page</Label>
-                      <Input
-                        id="itemsPerPage"
-                        type="number"
-                        defaultValue={userPreferences?.itemsPerPage || 20}
-                        min="5"
-                        max="100"
-                      />
+                    <div className="flex items-center justify-between">
+                      <div><Label>Notifications</Label><p className="text-xs text-muted-foreground">Show in-app notifications</p></div>
+                      <Switch checked={!!prefs.form.showNotifications} onCheckedChange={v => prefs.set('showNotifications', v)} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div><Label>Sound Alerts</Label><p className="text-xs text-muted-foreground">Play sounds for alerts</p></div>
+                      <Switch checked={!!prefs.form.soundEnabled} onCheckedChange={v => prefs.set('soundEnabled', v)} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div><Label>Email Digest</Label><p className="text-xs text-muted-foreground">Receive email summaries</p></div>
+                      <Select value={prefs.form.emailDigest ?? 'none'} onValueChange={v => prefs.set('emailDigest', v)}>
+                        <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                  <Button onClick={() => updateUserPreferences.mutate({})}>Save Preferences</Button>
+                  <Button onClick={() => savePrefs.mutate({ userId, ...cleanPayload(prefs.form) })} disabled={savePrefs.isPending}>
+                    <Save className="w-4 h-4 mr-2" />{savePrefs.isPending ? 'Saving…' : 'Save Preferences'}
+                  </Button>
                 </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Email Settings */}
+        {/* ── Email Settings ─────────────────────────────────────────────── */}
         <TabsContent value="email" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Email Configuration</CardTitle>
-              <CardDescription>Configure email settings for notifications and campaigns</CardDescription>
+              <CardDescription>Configure SMTP for notifications and campaigns</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {loadingEmail ? (
-                <div className="text-muted-foreground">Loading...</div>
-              ) : (
+              {loadingEmail ? <div className="text-muted-foreground text-sm">Loading…</div> : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="smtpHost">SMTP Host</Label>
-                      <Input
-                        id="smtpHost"
-                        defaultValue={emailSettings?.smtpHost || ''}
-                        placeholder="smtp.gmail.com"
-                      />
+                      <Label>SMTP Host</Label>
+                      <Input value={email.form.smtpHost ?? ''} onChange={e => email.set('smtpHost', e.target.value)} placeholder="smtp.gmail.com" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="smtpPort">SMTP Port</Label>
-                      <Input
-                        id="smtpPort"
-                        type="number"
-                        defaultValue={emailSettings?.smtpPort || 587}
-                      />
+                      <Label>SMTP Port</Label>
+                      <Input type="number" value={email.form.smtpPort ?? 587} onChange={e => email.set('smtpPort', Number(e.target.value))} />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="smtpUsername">SMTP Username</Label>
-                      <Input
-                        id="smtpUsername"
-                        defaultValue={emailSettings?.smtpUsername || ''}
-                        placeholder="your-email@gmail.com"
-                      />
+                      <Label>SMTP Username</Label>
+                      <Input value={email.form.smtpUser ?? ''} onChange={e => email.set('smtpUser', e.target.value)} placeholder="user@gmail.com" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="smtpPassword">SMTP Password</Label>
-                      <Input
-                        id="smtpPassword"
-                        type="password"
-                        defaultValue={emailSettings?.smtpPassword || ''}
-                      />
+                      <Label>SMTP Password</Label>
+                      <Input type="password" value={email.form.smtpPassword ?? ''} onChange={e => email.set('smtpPassword', e.target.value)} />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="fromEmail">From Email</Label>
-                      <Input
-                        id="fromEmail"
-                        type="email"
-                        defaultValue={emailSettings?.fromEmail || ''}
-                        placeholder="noreply@restaurant.com"
-                      />
+                      <Label>From Email</Label>
+                      <Input type="email" value={email.form.fromEmail ?? ''} onChange={e => email.set('fromEmail', e.target.value)} placeholder="noreply@restaurant.com" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="fromName">From Name</Label>
-                      <Input
-                        id="fromName"
-                        defaultValue={emailSettings?.fromName || ''}
-                        placeholder="Your Restaurant"
-                      />
+                      <Label>From Name</Label>
+                      <Input value={email.form.fromName ?? ''} onChange={e => email.set('fromName', e.target.value)} placeholder="Your Restaurant" />
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Switch id="emailEnabled" defaultChecked={emailSettings?.isEnabled} />
-                    <Label htmlFor="emailEnabled">Enable Email Notifications</Label>
+                    <Switch checked={!!email.form.isEnabled} onCheckedChange={v => email.set('isEnabled', v)} />
+                    <Label>Enable Email Notifications</Label>
                   </div>
-                  <Button onClick={() => updateEmailSettings.mutate({})}>Save Email Settings</Button>
+                  <div className="flex items-center space-x-2">
+                    <Switch checked={!!email.form.useTLS} onCheckedChange={v => email.set('useTLS', v)} />
+                    <Label>Use TLS</Label>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={() => saveEmail.mutate(cleanPayload(email.form))} disabled={saveEmail.isPending}>
+                      <Save className="w-4 h-4 mr-2" />{saveEmail.isPending ? 'Saving…' : 'Save Email Settings'}
+                    </Button>
+                    <Button variant="outline" onClick={() => testEmail.mutate()} disabled={testEmail.isPending}>
+                      {testEmail.isPending ? 'Testing…' : 'Test Connection'}
+                    </Button>
+                  </div>
                 </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Payment Settings */}
+        {/* ── Payment Settings ──────────────────────────────────────────── */}
         <TabsContent value="payment" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Payment Configuration</CardTitle>
-              <CardDescription>Configure payment gateway and processing settings</CardDescription>
+              <CardDescription>Configure payment gateways and processing</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {loadingPayment ? (
-                <div className="text-muted-foreground">Loading...</div>
-              ) : (
+              {loadingPayment ? <div className="text-muted-foreground text-sm">Loading…</div> : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="gateway">Payment Gateway</Label>
-                      <Select defaultValue={paymentSettings?.gateway || 'stripe'}>
-                        <SelectTrigger id="gateway">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="stripe">Stripe</SelectItem>
-                          <SelectItem value="square">Square</SelectItem>
-                          <SelectItem value="paypal">PayPal</SelectItem>
-                          <SelectItem value="authorize">Authorize.net</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  <div className="space-y-4">
+                    <div className="p-4 border rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div><p className="font-medium">Stripe</p><p className="text-xs text-muted-foreground">Card processing via Stripe</p></div>
+                        <Switch checked={!!payment.form.stripeEnabled} onCheckedChange={v => payment.set('stripeEnabled', v)} />
+                      </div>
+                      {payment.form.stripeEnabled && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Publishable Key</Label>
+                            <Input value={payment.form.stripePublishableKey ?? ''} onChange={e => payment.set('stripePublishableKey', e.target.value)} placeholder="pk_live_..." />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Secret Key</Label>
+                            <Input type="password" value={payment.form.stripeSecretKey ?? ''} onChange={e => payment.set('stripeSecretKey', e.target.value)} placeholder="sk_live_..." />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="apiKey">API Key</Label>
-                      <Input
-                        id="apiKey"
-                        type="password"
-                        defaultValue={paymentSettings?.apiKey || ''}
-                        placeholder="Enter API key"
-                      />
+                    <div className="p-4 border rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div><p className="font-medium">PayPal</p><p className="text-xs text-muted-foreground">PayPal checkout integration</p></div>
+                        <Switch checked={!!payment.form.paypalEnabled} onCheckedChange={v => payment.set('paypalEnabled', v)} />
+                      </div>
+                      {payment.form.paypalEnabled && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Client ID</Label>
+                            <Input value={payment.form.paypalClientId ?? ''} onChange={e => payment.set('paypalClientId', e.target.value)} placeholder="PayPal client ID..." />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Client Secret</Label>
+                            <Input type="password" value={payment.form.paypalClientSecret ?? ''} onChange={e => payment.set('paypalClientSecret', e.target.value)} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch checked={!!payment.form.cashPaymentEnabled} onCheckedChange={v => payment.set('cashPaymentEnabled', v)} />
+                      <Label>Accept Cash Payments</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch checked={!!payment.form.checkPaymentEnabled} onCheckedChange={v => payment.set('checkPaymentEnabled', v)} />
+                      <Label>Accept Check Payments</Label>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="transactionFee">Transaction Fee (%)</Label>
-                    <Input
-                      id="transactionFee"
-                      type="number"
-                      step="0.01"
-                      defaultValue={paymentSettings?.transactionFee || 2.9}
-                    />
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="paymentEnabled" defaultChecked={paymentSettings?.isEnabled} />
-                    <Label htmlFor="paymentEnabled">Enable Online Payments</Label>
-                  </div>
-                  <Button onClick={() => updatePaymentSettings.mutate({})}>Save Payment Settings</Button>
+                  <Button onClick={() => savePayment.mutate(cleanPayload(payment.form))} disabled={savePayment.isPending}>
+                    <Save className="w-4 h-4 mr-2" />{savePayment.isPending ? 'Saving…' : 'Save Payment Settings'}
+                  </Button>
                 </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Delivery Settings */}
+        {/* ── Delivery Settings ─────────────────────────────────────────── */}
         <TabsContent value="delivery" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Delivery Configuration</CardTitle>
-              <CardDescription>Configure delivery and third-party integration settings</CardDescription>
+              <CardDescription>Configure delivery options and thresholds</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {loadingDelivery ? (
-                <div className="text-muted-foreground">Loading...</div>
-              ) : (
+              {loadingDelivery ? <div className="text-muted-foreground text-sm">Loading…</div> : (
                 <>
                   <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch id="uberEats" defaultChecked={deliverySettings?.enableUberEats} />
-                      <Label htmlFor="uberEats">Enable Uber Eats Integration</Label>
+                    <div className="flex items-center justify-between">
+                      <div><Label>Internal Delivery</Label><p className="text-xs text-muted-foreground">Own delivery drivers</p></div>
+                      <Switch checked={!!delivery.form.internalDeliveryEnabled} onCheckedChange={v => delivery.set('internalDeliveryEnabled', v)} />
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="doordash" defaultChecked={deliverySettings?.enableDoorDash} />
-                      <Label htmlFor="doordash">Enable DoorDash Integration</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="grubhub" defaultChecked={deliverySettings?.enableGrubHub} />
-                      <Label htmlFor="grubhub">Enable GrubHub Integration</Label>
+                    <div className="flex items-center justify-between">
+                      <div><Label>Third-Party Delivery</Label><p className="text-xs text-muted-foreground">Uber Eats, DoorDash, GrubHub etc.</p></div>
+                      <Switch checked={!!delivery.form.thirdPartyDeliveryEnabled} onCheckedChange={v => delivery.set('thirdPartyDeliveryEnabled', v)} />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="deliveryRadius">Delivery Radius (miles)</Label>
-                    <Input
-                      id="deliveryRadius"
-                      type="number"
-                      defaultValue={deliverySettings?.deliveryRadius || 5}
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Default Delivery Fee ($)</Label>
+                      <Input type="number" step="0.01" value={delivery.form.defaultDeliveryFee ?? ''} onChange={e => delivery.set('defaultDeliveryFee', e.target.value)} placeholder="5.00" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Minimum Order for Delivery ($)</Label>
+                      <Input type="number" step="0.01" value={delivery.form.minOrderForDelivery ?? ''} onChange={e => delivery.set('minOrderForDelivery', e.target.value)} placeholder="20.00" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Max Delivery Distance (miles)</Label>
+                      <Input type="number" value={delivery.form.maxDeliveryDistance ?? ''} onChange={e => delivery.set('maxDeliveryDistance', Number(e.target.value))} placeholder="10" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Estimated Delivery Time (minutes)</Label>
+                      <Input type="number" value={delivery.form.deliveryTimeEstimate ?? ''} onChange={e => delivery.set('deliveryTimeEstimate', Number(e.target.value))} placeholder="30" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="minDeliveryOrder">Minimum Order Value ($)</Label>
-                    <Input
-                      id="minDeliveryOrder"
-                      type="number"
-                      step="0.01"
-                      defaultValue={deliverySettings?.minDeliveryOrder || 10}
-                    />
-                  </div>
-                  <Button onClick={() => updateDeliverySettings.mutate({})}>Save Delivery Settings</Button>
+                  <Button onClick={() => saveDelivery.mutate(cleanPayload(delivery.form))} disabled={saveDelivery.isPending}>
+                    <Save className="w-4 h-4 mr-2" />{saveDelivery.isPending ? 'Saving…' : 'Save Delivery Settings'}
+                  </Button>
                 </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Receipt Settings */}
+        {/* ── Receipt Settings ──────────────────────────────────────────── */}
         <TabsContent value="receipt" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Receipt Configuration</CardTitle>
-              <CardDescription>Customize receipt printing and format</CardDescription>
+              <CardDescription>Customize receipt printing and layout</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {loadingReceipt ? (
-                <div className="text-muted-foreground">Loading...</div>
-              ) : (
+              {loadingReceipt ? <div className="text-muted-foreground text-sm">Loading…</div> : (
                 <>
                   <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch id="printLogo" defaultChecked={receiptSettings?.printLogo} />
-                      <Label htmlFor="printLogo">Print Logo</Label>
+                    {[
+                      ['printLogo', 'Print Logo'],
+                      ['showItemDescription', 'Show Item Description'],
+                      ['showItemPrice', 'Show Item Price'],
+                      ['showTaxBreakdown', 'Show Tax Breakdown'],
+                      ['showDiscounts', 'Show Discounts'],
+                      ['showPaymentMethod', 'Show Payment Method'],
+                      ['showServerName', 'Show Server Name'],
+                      ['showTableNumber', 'Show Table Number'],
+                    ].map(([key, label]) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <Label>{label}</Label>
+                        <Switch checked={!!receipt.form[key as keyof typeof receipt.form]} onCheckedChange={v => receipt.set(key as keyof typeof receipt.form, v)} />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Receipt Header</Label>
+                      <Input value={receipt.form.receiptHeader ?? ''} onChange={e => receipt.set('receiptHeader', e.target.value)} placeholder="Welcome to Our Restaurant!" />
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="printTaxId" defaultChecked={receiptSettings?.printTaxId} />
-                      <Label htmlFor="printTaxId">Print Tax ID</Label>
+                    <div className="space-y-2">
+                      <Label>Receipt Footer</Label>
+                      <Input value={receipt.form.receiptFooter ?? ''} onChange={e => receipt.set('receiptFooter', e.target.value)} placeholder="Thank you for your visit!" />
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="printWaiterId" defaultChecked={receiptSettings?.printWaiterId} />
-                      <Label htmlFor="printWaiterId">Print Waiter ID</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="printTableNumber" defaultChecked={receiptSettings?.printTableNumber} />
-                      <Label htmlFor="printTableNumber">Print Table Number</Label>
+                    <div className="space-y-2">
+                      <Label>Receipt Width (mm)</Label>
+                      <Input type="number" value={receipt.form.receiptWidth ?? 80} onChange={e => receipt.set('receiptWidth', Number(e.target.value))} />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="footerText">Footer Text</Label>
-                    <Input
-                      id="footerText"
-                      defaultValue={receiptSettings?.footerText || ''}
-                      placeholder="Thank you for your visit!"
-                    />
-                  </div>
-                  <Button onClick={() => updateReceiptSettings.mutate({})}>Save Receipt Settings</Button>
+                  <Button onClick={() => saveReceipt.mutate(cleanPayload(receipt.form))} disabled={saveReceipt.isPending}>
+                    <Save className="w-4 h-4 mr-2" />{saveReceipt.isPending ? 'Saving…' : 'Save Receipt Settings'}
+                  </Button>
                 </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Security Settings */}
+        {/* ── Security Settings ─────────────────────────────────────────── */}
         <TabsContent value="security" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Security Configuration</CardTitle>
-              <CardDescription>Configure security and access control settings</CardDescription>
+              <CardDescription>Access control and authentication settings</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {loadingSecurity ? (
-                <div className="text-muted-foreground">Loading...</div>
-              ) : (
+              {loadingSecurity ? <div className="text-muted-foreground text-sm">Loading…</div> : (
                 <>
                   <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch id="twoFactor" defaultChecked={securitySettings?.enableTwoFactor} />
-                      <Label htmlFor="twoFactor">Require Two-Factor Authentication</Label>
+                    <div className="flex items-center justify-between">
+                      <div><Label>Two-Factor Authentication</Label><p className="text-xs text-muted-foreground">Require 2FA for all users</p></div>
+                      <Switch checked={!!security.form.twoFactorAuthEnabled} onCheckedChange={v => security.set('twoFactorAuthEnabled', v)} />
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="sso" defaultChecked={securitySettings?.enableSSO} />
-                      <Label htmlFor="sso">Enable Single Sign-On (SSO)</Label>
+                    <div className="flex items-center justify-between">
+                      <div><Label>Single Sign-On (SSO)</Label><p className="text-xs text-muted-foreground">Enable SSO for staff login</p></div>
+                      <Switch checked={!!security.form.ssoEnabled} onCheckedChange={v => security.set('ssoEnabled', v)} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div><Label>IP Whitelist</Label><p className="text-xs text-muted-foreground">Restrict access by IP address</p></div>
+                      <Switch checked={!!security.form.ipWhitelistEnabled} onCheckedChange={v => security.set('ipWhitelistEnabled', v)} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Session Timeout (seconds)</Label>
+                      <Input type="number" value={security.form.sessionTimeout ?? 3600} onChange={e => security.set('sessionTimeout', Number(e.target.value))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Minimum Password Length</Label>
+                      <Input type="number" value={security.form.passwordMinLength ?? 8} onChange={e => security.set('passwordMinLength', Number(e.target.value))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Password Expiry (days, 0 = never)</Label>
+                      <Input type="number" value={security.form.passwordExpiryDays ?? 0} onChange={e => security.set('passwordExpiryDays', Number(e.target.value))} />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="passwordPolicy">Password Policy</Label>
-                    <Select defaultValue={securitySettings?.passwordPolicy || 'medium'}>
-                      <SelectTrigger id="passwordPolicy">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="weak">Weak (6+ characters)</SelectItem>
-                        <SelectItem value="medium">Medium (8+ chars, mixed case)</SelectItem>
-                        <SelectItem value="strong">Strong (12+ chars, special chars)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {[
+                      ['passwordRequireUppercase', 'Require Uppercase Letters'],
+                      ['passwordRequireNumbers', 'Require Numbers'],
+                      ['passwordRequireSpecialChars', 'Require Special Characters'],
+                    ].map(([key, label]) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Switch checked={!!security.form[key as keyof typeof security.form]} onCheckedChange={v => security.set(key as keyof typeof security.form, v)} />
+                        <Label>{label}</Label>
+                      </div>
+                    ))}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sessionTimeout">Session Timeout (minutes)</Label>
-                    <Input
-                      id="sessionTimeout"
-                      type="number"
-                      defaultValue={securitySettings?.sessionTimeout || 30}
-                    />
-                  </div>
-                  <Button onClick={() => updateSecuritySettings.mutate({})}>Save Security Settings</Button>
+                  <Button onClick={() => saveSecurity.mutate(cleanPayload(security.form))} disabled={saveSecurity.isPending}>
+                    <Save className="w-4 h-4 mr-2" />{saveSecurity.isPending ? 'Saving…' : 'Save Security Settings'}
+                  </Button>
                 </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* API Keys */}
+        {/* ── API Keys ──────────────────────────────────────────────────── */}
         <TabsContent value="api" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>API Keys Management</CardTitle>
-              <CardDescription>Create and manage API keys for third-party integrations</CardDescription>
+              <CardDescription>Create and manage API keys for integrations</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {loadingApiKeys ? (
-                <div className="text-muted-foreground">Loading...</div>
-              ) : (
+              {loadingApiKeys ? <div className="text-muted-foreground text-sm">Loading…</div> : (
                 <>
-                  <div className="space-y-2">
-                    <Button onClick={() => createApiKey.mutate({ name: 'New API Key' })}>
-                      Create New API Key
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Key name (e.g. My App, Zapier)"
+                      value={newApiKeyName}
+                      onChange={e => setNewApiKeyName(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleCreateApiKey()}
+                    />
+                    <Button onClick={handleCreateApiKey} disabled={createApiKey.isPending}>
+                      <Plus className="w-4 h-4 mr-2" />{createApiKey.isPending ? 'Creating…' : 'Create Key'}
                     </Button>
                   </div>
                   <div className="space-y-2">
-                    {apiKeys?.map((key) => (
-                      <div key={key.id} className="flex items-center justify-between p-3 border rounded">
+                    {(!apiKeysData || apiKeysData.length === 0) && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No API keys yet. Create one above.</p>
+                    )}
+                    {apiKeysData?.map((key: any) => (
+                      <div key={key.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div>
-                          <p className="font-medium">{key.name}</p>
-                          <p className="text-sm text-muted-foreground">{key.key}</p>
+                          <p className="font-medium text-sm">{key.name}</p>
+                          <p className="font-mono text-xs text-muted-foreground break-all">{key.keyHash}</p>
                           <p className="text-xs text-muted-foreground">Created: {new Date(key.createdAt).toLocaleDateString()}</p>
                         </div>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => deleteApiKey.mutate({ id: key.id })}
-                        >
-                          Delete
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={key.isActive ? 'default' : 'secondary'}>{key.isActive ? 'Active' : 'Revoked'}</Badge>
+                          {key.isActive && (
+                            <Button variant="destructive" size="sm" onClick={() => revokeApiKey.mutate({ keyId: key.id })}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -532,52 +619,44 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        {/* Audit Log Settings */}
+        {/* ── Audit Log Settings ────────────────────────────────────────── */}
         <TabsContent value="audit" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Audit Logging Configuration</CardTitle>
+              <CardTitle>Audit Logging</CardTitle>
               <CardDescription>Configure audit logging for compliance and security</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {loadingAudit ? (
-                <div className="text-muted-foreground">Loading...</div>
-              ) : (
+              {loadingAudit ? <div className="text-muted-foreground text-sm">Loading…</div> : (
                 <>
                   <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch id="auditEnabled" defaultChecked={auditSettings?.isEnabled} />
-                      <Label htmlFor="auditEnabled">Enable Audit Logging</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="logUserActions" defaultChecked={auditSettings?.logUserActions} />
-                      <Label htmlFor="logUserActions">Log User Actions</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="logDataChanges" defaultChecked={auditSettings?.logDataChanges} />
-                      <Label htmlFor="logDataChanges">Log Data Changes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="logSecurityEvents" defaultChecked={auditSettings?.logSecurityEvents} />
-                      <Label htmlFor="logSecurityEvents">Log Security Events</Label>
-                    </div>
+                    {[
+                      ['enableAuditLogging', 'Enable Audit Logging'],
+                      ['logUserActions', 'Log User Actions'],
+                      ['logDataChanges', 'Log Data Changes'],
+                      ['logLoginAttempts', 'Log Login Attempts'],
+                      ['logPayments', 'Log Payment Events'],
+                    ].map(([key, label]) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <Label>{label}</Label>
+                        <Switch checked={!!audit.form[key as keyof typeof audit.form]} onCheckedChange={v => audit.set(key as keyof typeof audit.form, v)} />
+                      </div>
+                    ))}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="retentionDays">Log Retention (days)</Label>
-                    <Input
-                      id="retentionDays"
-                      type="number"
-                      defaultValue={auditSettings?.retentionDays || 90}
-                    />
+                    <Label>Log Retention (days)</Label>
+                    <Input type="number" value={audit.form.retentionDays ?? 90} onChange={e => audit.set('retentionDays', Number(e.target.value))} />
                   </div>
-                  <Button onClick={() => updateAuditSettings.mutate({})}>Save Audit Settings</Button>
+                  <Button onClick={() => saveAudit.mutate(cleanPayload(audit.form))} disabled={saveAudit.isPending}>
+                    <Save className="w-4 h-4 mr-2" />{saveAudit.isPending ? 'Saving…' : 'Save Audit Settings'}
+                  </Button>
                 </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Backup Settings */}
+        {/* ── Backup Settings ───────────────────────────────────────────── */}
         <TabsContent value="backup" className="space-y-4">
           <Card>
             <CardHeader>
@@ -585,50 +664,53 @@ export default function Settings() {
               <CardDescription>Configure automatic backups and data export</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {loadingBackup ? (
-                <div className="text-muted-foreground">Loading...</div>
-              ) : (
+              {loadingBackup ? <div className="text-muted-foreground text-sm">Loading…</div> : (
                 <>
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch id="autoBackup" defaultChecked={backupSettings?.autoBackupEnabled} />
-                      <Label htmlFor="autoBackup">Enable Automatic Backups</Label>
+                  <div className="flex items-center justify-between">
+                    <div><Label>Automatic Backups</Label><p className="text-xs text-muted-foreground">Schedule regular backups</p></div>
+                    <Switch checked={!!backup.form.autoBackupEnabled} onCheckedChange={v => backup.set('autoBackupEnabled', v)} />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Backup Frequency</Label>
+                      <Select value={backup.form.backupFrequency ?? 'daily'} onValueChange={v => backup.set('backupFrequency', v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hourly">Hourly</SelectItem>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Backup Time</Label>
+                      <Input type="time" value={backup.form.backupTime ?? '02:00'} onChange={e => backup.set('backupTime', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Retention Period (days)</Label>
+                      <Input type="number" value={backup.form.retentionDays ?? 30} onChange={e => backup.set('retentionDays', Number(e.target.value))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>S3 Bucket Name</Label>
+                      <Input value={backup.form.s3BucketName ?? ''} onChange={e => backup.set('s3BucketName', e.target.value)} placeholder="my-restaurant-backups" />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="backupFrequency">Backup Frequency</Label>
-                    <Select defaultValue={backupSettings?.backupFrequency || 'daily'}>
-                      <SelectTrigger id="backupFrequency">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="hourly">Hourly</SelectItem>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="flex items-center space-x-2">
+                    <Switch checked={!!backup.form.s3Enabled} onCheckedChange={v => backup.set('s3Enabled', v)} />
+                    <Label>Enable S3 Backups</Label>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="backupTime">Backup Time</Label>
-                    <Input
-                      id="backupTime"
-                      type="time"
-                      defaultValue={backupSettings?.backupTime || '02:00'}
-                    />
+                  {backupData?.lastBackupAt && (
+                    <p className="text-xs text-muted-foreground">Last backup: {new Date(backupData.lastBackupAt).toLocaleString()}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button onClick={() => saveBackup.mutate(cleanPayload(backup.form))} disabled={saveBackup.isPending}>
+                      <Save className="w-4 h-4 mr-2" />{saveBackup.isPending ? 'Saving…' : 'Save Backup Settings'}
+                    </Button>
+                    <Button variant="outline" onClick={() => triggerBackup.mutate()} disabled={triggerBackup.isPending}>
+                      <RefreshCw className="w-4 h-4 mr-2" />{triggerBackup.isPending ? 'Running…' : 'Backup Now'}
+                    </Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="retentionBackup">Backup Retention (days)</Label>
-                    <Input
-                      id="retentionBackup"
-                      type="number"
-                      defaultValue={backupSettings?.retentionDays || 30}
-                    />
-                  </div>
-                  <Button onClick={() => triggerBackup.mutate({})}>
-                    Trigger Backup Now
-                  </Button>
-                  <Button onClick={() => updateBackupSettings.mutate({})}>Save Backup Settings</Button>
                 </>
               )}
             </CardContent>

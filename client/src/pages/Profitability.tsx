@@ -65,7 +65,7 @@ export default function Profitability() {
   }, [bottomItems]);
 
   const trendChart = useMemo(() => {
-    return trends?.map((t) => ({
+    return trends?.map((t: any) => ({
       date: new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       revenue: t.revenue,
       profit: t.netProfit,
@@ -130,7 +130,7 @@ export default function Profitability() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-muted-foreground text-sm">Profit Margin</p>
-                  <p className="text-2xl font-bold mt-2">{formatPercent(summary.profitMargin)}</p>
+                  <p className="text-2xl font-bold mt-2">{formatPercent((summary as any).grossMargin || 0)}</p>
                 </div>
                 <Percent className="h-8 w-8 text-info opacity-50" />
               </div>
@@ -142,7 +142,7 @@ export default function Profitability() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-muted-foreground text-sm">COGS %</p>
-                  <p className="text-2xl font-bold mt-2">{formatPercent(summary.cogsPercentage)}</p>
+                  <p className="text-2xl font-bold mt-2">{formatPercent(((summary as any).cogs / summary.totalRevenue) * 100)}</p>
                 </div>
                 <Package className="h-8 w-8 text-warning opacity-50" />
               </div>
@@ -205,8 +205,8 @@ export default function Profitability() {
                     </tr>
                   </thead>
                   <tbody>
-                    {byCategory?.map((cat) => (
-                      <tr key={cat.categoryId} className="border-b border-border/50 hover:bg-accent/30">
+                    {byCategory?.map((cat, idx) => (
+                      <tr key={idx} className="border-b border-border/50 hover:bg-accent/30">
                         <td className="py-2 px-4">{cat.categoryName}</td>
                         <td className="text-right py-2 px-4">{cat.quantity}</td>
                         <td className="text-right py-2 px-4 font-semibold">{formatCurrency(cat.revenue)}</td>

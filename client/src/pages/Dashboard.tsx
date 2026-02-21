@@ -148,7 +148,7 @@ export default function Dashboard() {
             <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <button
                 onClick={() => navigate("/pos")}
                 className="flex flex-col items-center justify-center gap-3 p-5 rounded-xl border border-border bg-secondary/30 hover:bg-secondary/60 hover:border-primary/30 transition-all cursor-pointer group"
@@ -266,17 +266,17 @@ export default function Dashboard() {
             {staffOnDuty && staffOnDuty.length > 0 ? (
               <div className="space-y-2.5">
                 {staffOnDuty.slice(0, 6).map(entry => {
-                  const clockedInAt = new Date(entry.clockIn);
+                  const clockedInAt = new Date((entry as any).clockIn);
                   const hoursWorked = ((Date.now() - clockedInAt.getTime()) / (1000 * 60 * 60)).toFixed(1);
                   return (
                     <div key={entry.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50">
                       <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-full bg-purple-500/15 flex items-center justify-center">
-                          <span className="text-sm font-semibold text-purple-400">{entry.staffName.charAt(0).toUpperCase()}</span>
+                          <span className="text-sm font-semibold text-purple-400">{(entry as any).staffName?.charAt(0).toUpperCase()}</span>
                         </div>
                         <div>
-                          <p className="text-sm font-medium">{entry.staffName}</p>
-                          <p className="text-xs text-muted-foreground capitalize">{entry.staffRole}</p>
+                          <p className="text-sm font-medium">{(entry as any).staffName}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{(entry as any).staffRole}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -383,14 +383,13 @@ export default function Dashboard() {
                       <td className="py-3 text-right">
                         <Badge
                           variant="outline"
-                          className={`text-xs font-medium border-0 ${
-                            order.status === "completed" ? "bg-emerald-500/15 text-emerald-400" :
+                          className={`text-xs font-medium border-0 ${order.status === "completed" ? "bg-emerald-500/15 text-emerald-400" :
                             order.status === "cancelled" ? "bg-red-500/15 text-red-400" :
-                            order.status === "preparing" ? "bg-blue-500/15 text-blue-400" :
-                            order.status === "ready" ? "bg-amber-500/15 text-amber-400" :
-                            order.status === "served" ? "bg-purple-500/15 text-purple-400" :
-                            "bg-secondary text-muted-foreground"
-                          }`}
+                              order.status === "preparing" ? "bg-blue-500/15 text-blue-400" :
+                                order.status === "ready" ? "bg-amber-500/15 text-amber-400" :
+                                  order.status === "served" ? "bg-purple-500/15 text-purple-400" :
+                                    "bg-secondary text-muted-foreground"
+                            }`}
                         >
                           {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                         </Badge>

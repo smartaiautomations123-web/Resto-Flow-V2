@@ -29,7 +29,8 @@ const STATIONS = ["all", "grill", "fryer", "salad", "dessert", "bar", "general"]
 
 export default function KDS() {
   const utils = trpc.useUtils();
-  const { data: kdsItems, isLoading } = trpc.kds.items.useQuery(undefined, { refetchInterval: 5000 });
+  const { data: kdsItemsData, isLoading } = trpc.kds.items.useQuery(undefined, { refetchInterval: 5000 });
+  const kdsItems = kdsItemsData as any[] | undefined;
   const updateStatus = trpc.kds.updateStatus.useMutation({
     onSuccess: () => utils.kds.items.invalidate(),
   });
@@ -133,7 +134,7 @@ export default function KDS() {
       `Station: ${item.station || "general"}`,
       item.notes ? `Notes: ${item.notes}` : "",
       Array.isArray(item.modifiers) && (item.modifiers as any[]).length > 0
-        ? `Mods: ${(item.modifiers as Array<{name: string}>).map(m => m.name).join(", ")}`
+        ? `Mods: ${(item.modifiers as Array<{ name: string }>).map(m => m.name).join(", ")}`
         : "",
       `Time: ${new Date().toLocaleTimeString()}`,
       "================================",
@@ -249,9 +250,9 @@ export default function KDS() {
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">Qty: {item.quantity}</p>
                         {item.notes && <p className="text-xs text-muted-foreground mt-1 italic">{String(item.notes)}</p>}
-                        {Array.isArray(item.modifiers) && (item.modifiers as Array<{name: string}>).length > 0 && (
+                        {Array.isArray(item.modifiers) && (item.modifiers as Array<{ name: string }>).length > 0 && (
                           <div className="flex gap-1 mt-1 flex-wrap">
-                            {(item.modifiers as Array<{name: string}>).map((m, i) => (
+                            {(item.modifiers as Array<{ name: string }>).map((m, i) => (
                               <Badge key={i} variant="secondary" className="text-xs">{m.name}</Badge>
                             ))}
                           </div>

@@ -168,7 +168,7 @@ export default function POS() {
   // Handle payment (single or split)
   const handlePayment = async (method: "card" | "cash" | "split") => {
     try {
-      const order = await createOrder.mutateAsync({
+      const order: any = await createOrder.mutateAsync({
         type: orderType,
         tableId: selectedTable ? Number(selectedTable) : undefined,
         customerName: customerName || undefined,
@@ -223,7 +223,7 @@ export default function POS() {
 
       // If split payment, open split dialog
       if (method === "split") {
-        const splitBill = await splitBillCreate.mutateAsync({
+        const splitBill: any = await splitBillCreate.mutateAsync({
           orderId: order.id,
           splitType: splitType,
           totalParts: splitParts,
@@ -301,7 +301,7 @@ export default function POS() {
         {/* Active merges banner */}
         {activeMerges && activeMerges.length > 0 && (
           <div className="flex gap-2 mb-3 flex-wrap">
-            {activeMerges.map(m => (
+            {activeMerges.map((m: any) => (
               <Badge key={m.id} variant="secondary" className="gap-1 cursor-pointer" onClick={() => handleUnmerge(m.id)}>
                 Merged: Table {m.primaryTableId} + {(m.mergedTableIds as number[]).join(", ")}
                 <span className="text-destructive ml-1">✕</span>
