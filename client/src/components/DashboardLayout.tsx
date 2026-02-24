@@ -55,6 +55,7 @@ const menuGroups: MenuGroup[] = [
     icon: LayoutDashboard,
     items: [
       { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+      { icon: Bell, label: "Notifications", path: "/notifications" },
     ],
   },
 
@@ -125,9 +126,8 @@ const menuGroups: MenuGroup[] = [
       { icon: Zap, label: "Segments", path: "/segments" },
       { icon: MessageSquare, label: "SMS Campaigns", path: "/sms-settings" },
       { icon: Mail, label: "Email Campaigns", path: "/email-campaigns" },
-      { icon: Bell, label: "Notifications", path: "/notifications" },
     ],
-    dividers: [1],
+    dividers: [2],
   },
 
   // ─── Reservations & Seating ───
@@ -373,11 +373,10 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                     <SidebarMenuItem>
                       <button
                         onClick={() => toggleGroup(group.id)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-medium text-sm group-data-[collapsible=icon]:justify-center ${
-                          hasActiveItem
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-medium text-sm group-data-[collapsible=icon]:justify-center ${hasActiveItem
                             ? "bg-primary/10 text-primary"
                             : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                        }`}
+                          }`}
                         aria-expanded={isExpanded}
                       >
                         <group.icon className="h-4 w-4 shrink-0" />

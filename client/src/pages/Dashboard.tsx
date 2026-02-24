@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   DollarSign, ShoppingCart, Users, Package, AlertCircle, Clock,
-  ChefHat, BarChart3, CalendarClock, ArrowUpRight, ArrowDownRight,
+  ChefHat, BarChart3, CalendarClock, ArrowUpRight, ArrowDownRight, Sparkles
 } from "lucide-react";
 import { useMemo } from "react";
 import { useLocation } from "wouter";
@@ -38,6 +38,8 @@ export default function Dashboard() {
   const { data: staffOnDuty } = trpc.dashboard.staffOnDuty.useQuery();
   // Shifts ending soon
   const { data: shiftsEndingSoon } = trpc.dashboard.shiftsEndingSoon.useQuery();
+  // AI Insights
+  const { data: aiInsights, isLoading: isLoadingAi } = trpc.ai.getDashboardInsights.useQuery({ dateFrom: today, dateTo: tomorrow });
 
   const activeOrders = recentOrders?.filter(o => ["pending", "preparing", "ready"].includes(o.status)) || [];
 
@@ -60,6 +62,27 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-1">Overview of your restaurant operations today.</p>
       </div>
+
+      {/* ─── AI Insights ─────────────────────────────────────────── */}
+      <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20 overflow-hidden relative">
+        <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
+        <CardContent className="pt-6 pb-6">
+          <div className="flex items-start gap-4">
+            <div className="h-10 w-10 rounded-xl bg-primary/20 flex flex-shrink-0 items-center justify-center mt-0.5 shadow-sm">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-semibold text-lg text-foreground flex items-center gap-2">
+                Smart Operations Insight
+                {isLoadingAi && <span className="text-xs font-normal text-primary/70 animate-pulse bg-primary/10 px-2 py-0.5 rounded-full">Analyzing...</span>}
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed max-w-4xl">
+                {isLoadingAi ? "Our AI is currently analyzing your daily sales, labour metrics, and inventory levels to generate insights..." : (aiInsights?.insight || "Gathering performance metrics...")}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ─── KPI Cards ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

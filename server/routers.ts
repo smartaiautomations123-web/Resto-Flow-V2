@@ -1187,6 +1187,97 @@ IMPORTANT: Extract EVERY product line. Do not skip any. Return valid JSON only.`
       .mutation(({ input }) => db.deleteIntegration(input.id)),
   }),
 
+  // ─── AI Insights & Smart Prompts ────────────────────────────────────────
+  ai: router({
+    getDashboardInsights: protectedProcedure.input(z.object({
+      dateFrom: z.string(),
+      dateTo: z.string()
+    })).query(async ({ input }) => {
+      // Fetch KPI metrics for the LLM
+      const kpis = await db.getProfitabilitySummary(input.dateFrom, input.dateTo);
+      const lowStock = await db.getLowStockIngredients();
+
+      const prompt = `You are an expert restaurant financial advisor AI.
+Here is the restaurant's recent performance summary:
+Revenue: $${kpis.totalRevenue}
+COGS: $${kpis.totalCOGS}
+Labour Cost: $${kpis.totalLabourCost}
+Gross Profit: $${kpis.grossProfit}
+
+Plus ${lowStock.length} items currently low on stock.
+
+Write a 2-3 sentence personalized insight on this business performance, highlighting what they are doing well and one area (e.g., labour or supplies or stock) they should focus on. Keep it professional, encouraging, and concise. Do NOT use markdown.`;
+
+      try {
+        const llmResult = await invokeLLM({
+          messages: [
+            { role: "system", content: "You provide short, actionable restaurant management insights." },
+            { role: "user", content: prompt }
+          ]
+        });
+        const content = llmResult.choices[0]?.message?.content;
+        return { insight: content || "Keep up the great work! Sales are steady, but monitor your labour costs to maximize margins." };
+      } catch (e) {
+        console.error("AI Insight Error:", e);
+        return { insight: "Keep up the great work! Monitor your daily metrics closely to maximize profitability." };
+      }
+    }),
+
+    generateSmartNotifications: protectedProcedure.mutation(async ({ ctx }) => {
+      // Get recent data to find recommendations
+      const lowStock = await db.getLowStockIngredients();
+      const topItems = await db.getTopProfitableItems(3, new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0], new Date().toISOString().split('T')[0]);
+
+      const dataStr = JSON.stringify({
+        lowStockItems: lowStock.map(i => ({ name: i.name, current: i.currentStock, min: i.minStock })),
+        topSellers: topItems.map(i => ({ name: i.name, margin: i.marginPercent }))
+      });
+
+      const prompt = `You are an AI restaurant operations assistant. Analyze the following data and generate 2-3 actionable notifications for the manager.
+Data: ${dataStr}
+
+Focus on:
+1. Reordering strategies for low stock items (suggesting volume or finding cheaper suppliers).
+2. Promoting high-margin top sellers to increase revenue.
+
+Provide the response as a JSON object containing a "notifications" array. Each object in the array must have exactly:
+- "title": A short, catchy title (max 5 words)
+- "message": Actionable 1-2 sentence advice
+- "type": Either "warning" (for low stock/costs) or "success" (for revenue/sales)
+`;
+
+      try {
+        const llmResult = await invokeLLM({
+          messages: [
+            { role: "system", content: "You output valid JSON only." },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" }
+        });
+
+        const content = llmResult.choices[0]?.message?.content || '{"notifications":[]}';
+        const parsed = JSON.parse(content);
+        let notifs = parsed.notifications || [];
+        if (!Array.isArray(notifs)) notifs = [];
+
+        // Save these to the DB so they appear in Notification Center
+        for (const n of notifs) {
+          await db.createNotification(
+            ctx.user.id,
+            `🤖 ${n.title}`,
+            n.message,
+            n.type === "warning" ? "alert" : "info"
+          );
+        }
+
+        return { success: true, notifications: notifs };
+      } catch (e) {
+        console.error("Smart notification error:", e);
+        return { success: false, notifications: [] };
+      }
+    }),
+  }),
+
   // Add missing mock routes
   locations: router({
     list: protectedProcedure.query(() => [] as any[]),

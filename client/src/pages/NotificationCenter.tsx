@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Bell, Check, Archive, CheckCheck, Info,
-  AlertTriangle, ShoppingBag, Users, Star, RefreshCw
+  AlertTriangle, ShoppingBag, Users, Star, RefreshCw, Sparkles
 } from "lucide-react";
 
 const TYPE_CONFIG: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -52,6 +52,20 @@ export default function NotificationCenter() {
 
   const archiveNotif = trpc.notifications.archive.useMutation({
     onSuccess: () => utils.notifications.getByUser.invalidate(),
+  });
+
+  const generateAlerts = trpc.ai.generateSmartNotifications.useMutation({
+    onSuccess: (data) => {
+      if (data.success && data.notifications.length > 0) {
+        toast.success(`Generated ${data.notifications.length} smart alerts!`);
+        utils.notifications.getByUser.invalidate();
+      } else {
+        toast.info("No new insights found at this time.");
+      }
+    },
+    onError: () => {
+      toast.error("Failed to generate smart alerts.");
+    }
   });
 
   const unread = notifications?.filter((n: any) => !n.isRead && !n.isArchived) ?? [];
@@ -140,6 +154,16 @@ export default function NotificationCenter() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white border-transparent"
+            onClick={() => generateAlerts.mutateAsync()}
+            disabled={generateAlerts.isPending}
+          >
+            <Sparkles className={`h-4 w-4 mr-2 ${generateAlerts.isPending ? "animate-spin" : ""}`} />
+            {generateAlerts.isPending ? "Analyzing..." : "Generate AI Alerts"}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh
           </Button>
