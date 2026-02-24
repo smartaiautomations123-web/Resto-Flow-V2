@@ -50,11 +50,13 @@ import Settings from "./pages/Settings";
 import Integrations from "./pages/Integrations";
 import CustomReportBuilder from "./pages/CustomReportBuilder";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
+import AuthPage from "./pages/Auth";
 
 function Router() {
   return (
     <Switch>
       {/* Public routes (no dashboard layout) */}
+      <Route path="/auth" component={AuthPage} />
       <Route path="/order" component={OnlineOrdering} />
       <Route path="/table/:tableId" component={TableOrdering} />
       <Route path="/order-status" component={OrderStatus} />
